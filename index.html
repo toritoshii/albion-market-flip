@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Albion Market Flip - Máy Quét Lợi Nhuận Chợ Albion Online ASIA</title>
+  <meta name="description" content="Công cụ quét thị trường, tính toán tỷ suất lợi nhuận (ROI), phí thuế Premium và Stationary Flipping tại chỗ trong Albion Online Server Asia.">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- Top Header & Brand -->
+    <header class="app-header">
+      <div class="brand-section">
+        <div class="brand-icon">⚖️</div>
+        <div class="brand-text">
+          <h1>
+            ALBION MARKET FLIP
+            <span class="server-tag" id="current-server-badge">ASIA EAST</span>
+          </h1>
+          <p class="brand-subtitle">Máy quét chênh lệch Buy / Sell Order tại chỗ &amp; tính thuế Premium chuẩn 100%</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- Premium Switch Card -->
+        <div class="premium-card is-active" id="premium-card">
+          <label class="switch" for="premium-toggle" title="Bật / Tắt trạng thái tài khoản Premium">
+            <input type="checkbox" id="premium-toggle" checked>
+            <span class="slider"></span>
+          </label>
+          <div class="premium-info">
+            <span class="premium-title" id="premium-status-title">🌟 PREMIUM ACTIVE</span>
+            <span class="premium-desc" id="premium-status-desc">
+              Thuế: <strong class="premium-badge-tax">4.0%</strong> + Setup: <strong>2.5%</strong> (Tổng 6.5%)
+            </span>
+          </div>
+        </div>
+
+        <!-- Server Selector -->
+        <div class="server-selector" title="Chọn máy chủ Albion Online">
+          <label for="server-select" style="margin-right: 6px; color: var(--text-muted); font-size: 11px;">SERVER:</label>
+          <select id="server-select">
+            <option value="east" selected>🌏 Asia (Singapore)</option>
+            <option value="west">🌎 Americas (Washington)</option>
+            <option value="europe">🌍 Europe (Amsterdam)</option>
+          </select>
+        </div>
+      </div>
+    </header>
+
+    <!-- Metrics Summary Strip -->
+    <section class="metrics-strip">
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-label">Cơ Hội Tìm Thấy</span>
+          <span class="metric-icon">🎯</span>
+        </div>
+        <div class="metric-value highlight-gold" id="stat-opportunities">0</div>
+        <div class="metric-sub" id="stat-opportunities-sub">Sẵn sàng để quét</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-label">Lợi Nhuận Đơn Cao Nhất</span>
+          <span class="metric-icon">💰</span>
+        </div>
+        <div class="metric-value highlight-emerald" id="stat-max-profit">0 Silver</div>
+        <div class="metric-sub">Đã trừ toàn bộ thuế &amp; phí</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-label">ROI Trung Bình Top</span>
+          <span class="metric-icon">📈</span>
+        </div>
+        <div class="metric-value highlight-emerald" id="stat-avg-roi">0%</div>
+        <div class="metric-sub">Tỷ suất sinh lời ròng</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-label">Thành Phố Quét</span>
+          <span class="metric-icon">🏰</span>
+        </div>
+        <div class="metric-value" id="stat-current-city">Lymhurst</div>
+        <div class="metric-sub" id="stat-freshness">Dữ liệu AODP trực tiếp</div>
+      </div>
+    </section>
+
+    <!-- Control Center & Filter Panel -->
+    <main class="control-panel">
+      <!-- Cities Bar -->
+      <div class="cities-bar" id="cities-container">
+        <span class="cities-label">📍 Chọn Thành Phố:</span>
+        <button type="button" class="city-btn active" data-city="Lymhurst" id="btn-city-lymhurst">🌲 Lymhurst</button>
+        <button type="button" class="city-btn" data-city="Fort Sterling" id="btn-city-fort-sterling">🏔️ Fort Sterling</button>
+        <button type="button" class="city-btn" data-city="Thetford" id="btn-city-thetford">🌿 Thetford</button>
+        <button type="button" class="city-btn" data-city="Bridgewatch" id="btn-city-bridgewatch">🏜️ Bridgewatch</button>
+        <button type="button" class="city-btn" data-city="Martlock" id="btn-city-martlock">🏰 Martlock</button>
+        <button type="button" class="city-btn" data-city="Caerleon" id="btn-city-caerleon">☠️ Caerleon</button>
+        <button type="button" class="city-btn" data-city="Brecilien" id="btn-city-brecilien">🌸 Brecilien</button>
+      </div>
+
+      <!-- Quick Preset Categories -->
+      <div class="categories-bar" id="category-presets">
+        <button type="button" class="cat-btn active" data-cat="hot" id="cat-btn-hot">🔥 Top Hàng Nóng</button>
+        <button type="button" class="cat-btn" data-cat="accessories" id="cat-btn-accessories">🎒 Túi &amp; Áo Choàng</button>
+        <button type="button" class="cat-btn" data-cat="weapons" id="cat-btn-weapons">⚔️ Vũ Khí</button>
+        <button type="button" class="cat-btn" data-cat="armor" id="cat-btn-armor">🛡️ Giáp &amp; Mũ &amp; Giày</button>
+        <button type="button" class="cat-btn" data-cat="mounts" id="cat-btn-mounts">🐎 Thú Cưỡi</button>
+        <button type="button" class="cat-btn" data-cat="consumables" id="cat-btn-consumables">🧪 Thức Ăn &amp; Thuốc</button>
+        <button type="button" class="cat-btn" data-cat="materials" id="cat-btn-materials">🪵 Nguyên Liệu &amp; Đá</button>
+        <button type="button" class="cat-btn" data-cat="all" id="cat-btn-all">✨ Tất Cả (1700+ Items)</button>
+      </div>
+
+      <!-- Detailed Filters Grid -->
+      <div class="filters-grid">
+        <div class="filter-group">
+          <label for="search-input">Tìm kiếm tên hoặc mã món đồ</label>
+          <input type="text" id="search-input" class="filter-input" placeholder="VD: Bag, Claymore, Carving, Omelette, Cape...">
+        </div>
+
+        <div class="filter-group">
+          <label for="tier-select">Cấp bậc (Tier)</label>
+          <select id="tier-select" class="filter-select">
+            <option value="all" selected>Tất cả Tier (T3-T8)</option>
+            <option value="4">Tier 4</option>
+            <option value="5">Tier 5</option>
+            <option value="6">Tier 6</option>
+            <option value="7">Tier 7</option>
+            <option value="8">Tier 8</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="enchant-select">Cường Hóa (Enchant)</label>
+          <select id="enchant-select" class="filter-select">
+            <option value="all" selected>Tất cả (.0 - .3)</option>
+            <option value="0">.0 (Không enchant)</option>
+            <option value="1">.1 (Xanh lá)</option>
+            <option value="2">.2 (Xanh lam)</option>
+            <option value="3">.3 (Tím)</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="budget-select">Vốn Tối Đa (Max Cost)</label>
+          <select id="budget-select" class="filter-select">
+            <option value="0" selected>Không giới hạn</option>
+            <option value="20000">Dưới 20k Silver</option>
+            <option value="50000">Dưới 50k Silver</option>
+            <option value="100000">Dưới 100k Silver</option>
+            <option value="500000">Dưới 500k Silver</option>
+            <option value="1000000">Dưới 1M Silver</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="min-profit-select">Lợi Nhuận Tối Thiểu</label>
+          <select id="min-profit-select" class="filter-select">
+            <option value="500">>= 500 Silver</option>
+            <option value="1000" selected>>= 1,000 Silver</option>
+            <option value="5000">>= 5,000 Silver</option>
+            <option value="20000">>= 20,000 Silver</option>
+            <option value="50000">>= 50,000 Silver</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="max-age-select">Độ Cũ Dữ Liệu</label>
+          <select id="max-age-select" class="filter-select">
+            <option value="180">< 3 Giờ</option>
+            <option value="360">< 6 Giờ</option>
+            <option value="720">< 12 Giờ</option>
+            <option value="1440" selected>< 24 Giờ</option>
+            <option value="0">Tất cả mọi lúc</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Action Button Row -->
+      <div class="action-row">
+        <div class="scan-btn-group">
+          <button type="button" class="btn-primary" id="scan-btn">
+            <span>🚀</span> BẮT ĐẦU QUÉT THỊ TRƯỜNG
+          </button>
+          <button type="button" class="btn-secondary" id="refresh-btn">
+            <span>🔄</span> Quét Lại
+          </button>
+          <button type="button" class="btn-secondary" id="reset-btn">
+            <span>🧹</span> Đặt Lại Bộ Lọc
+          </button>
+        </div>
+
+        <div class="status-badge-container">
+          <span id="scan-status-text">Chọn danh mục và bấm "Bắt Đầu Quét" để phân tích giá.</span>
+        </div>
+      </div>
+    </main>
+
+    <!-- Scan Progress Section -->
+    <section class="progress-section" id="progress-container">
+      <div class="progress-header">
+        <div class="progress-title" id="progress-label">
+          <span>⚡</span> Đang lấy dữ liệu giá từ máy chủ AODP Asia...
+        </div>
+        <div id="progress-percent" style="font-weight: 700; color: var(--emerald-light);">0%</div>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progress-bar"></div>
+      </div>
+    </section>
+
+    <!-- Results Section -->
+    <section class="results-section">
+      <div class="results-header-bar">
+        <div class="results-count" id="results-count-title">
+          Danh Sách Cơ Hội Flip: <span id="filtered-items-count">0</span> món
+        </div>
+        <div style="font-size: 12px; color: var(--text-muted);">
+          * Click vào tiêu đề cột để sắp xếp | Click vào từng món để mở bảng tính dòng tiền
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="market-table" id="market-results-table">
+          <thead>
+            <tr>
+              <th data-sort="name">Vật Phẩm</th>
+              <th data-sort="buyPrice">Buy Order (Mua)</th>
+              <th data-sort="sellPrice">Sell Order (Bán)</th>
+              <th data-sort="unitCost">Vốn Đầu Tư</th>
+              <th data-sort="unitNetProfit" class="sorted-desc">Lợi Nhuận Ròng</th>
+              <th data-sort="roi">ROI (%)</th>
+              <th data-sort="freshness">Cập Nhật</th>
+              <th style="text-align: center;">Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="market-table-body">
+            <tr>
+              <td colspan="8">
+                <div class="empty-state">
+                  <div class="empty-state-icon">⚖️</div>
+                  <h3>Sẵn Sàng Quét Thị Trường</h3>
+                  <p>Hãy chọn thành phố bạn đang đứng, chọn nhóm hàng và nhấn <strong>Bắt Đầu Quét</strong> để tìm các món hời nhất!</p>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Detail Calculator Modal -->
+  <div class="modal-backdrop" id="calc-modal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="item-icon-box" id="modal-item-icon">
+            <img src="" alt="Item Icon" id="modal-img">
+          </div>
+          <div>
+            <h3 id="modal-item-name" style="color: var(--text-primary); font-size: 16px;">Tên Vật Phẩm</h3>
+            <div id="modal-item-en" style="font-size: 12px; color: var(--text-muted);">Item English Name</div>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" id="modal-close-btn" title="Đóng">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Quantity control -->
+        <div class="calc-qty-control">
+          <div>
+            <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">Số Lượng Flip (Quantity):</div>
+            <div style="font-size: 11px; color: var(--text-muted);">Dự tính theo số vốn sẵn có trong túi của bạn</div>
+          </div>
+          <div class="qty-input-box" style="margin-left: auto;">
+            <button type="button" class="qty-btn" id="qty-minus">-</button>
+            <input type="number" id="calc-qty-input" value="1" min="1" max="9999">
+            <button type="button" class="qty-btn" id="qty-plus">+</button>
+          </div>
+        </div>
+
+        <!-- Profit Summary Big Card -->
+        <div class="profit-summary-card">
+          <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.8px;">
+            Tổng Lợi Nhuận Ròng Thu Về (Net Profit)
+          </div>
+          <div class="profit-summary-val" id="modal-summary-profit">+0 Silver</div>
+          <div class="profit-summary-roi" id="modal-summary-roi">Tỷ Suất Lợi Nhuận: +0% ROI</div>
+        </div>
+
+        <!-- Breakdown Grid -->
+        <div class="breakdown-grid">
+          <!-- Buy side -->
+          <div class="breakdown-box">
+            <div class="breakdown-title">
+              <span>ĐẶT LỆNH MUA (BUY ORDER)</span>
+              <span>📥</span>
+            </div>
+            <div class="breakdown-row">
+              <span>Giá Buy Order đề xuất:</span>
+              <span id="modal-buy-price">0</span>
+            </div>
+            <div class="breakdown-row">
+              <span>Setup Fee mua (2.5%):</span>
+              <span id="modal-buy-setup">0</span>
+            </div>
+            <div class="breakdown-row breakdown-total">
+              <span>Tổng Vốn Chi Ra:</span>
+              <span id="modal-total-buy" style="color: var(--text-gold);">0</span>
+            </div>
+          </div>
+
+          <!-- Sell side -->
+          <div class="breakdown-box">
+            <div class="breakdown-title">
+              <span>ĐẶT LỆNH BÁN (SELL ORDER)</span>
+              <span>📤</span>
+            </div>
+            <div class="breakdown-row">
+              <span>Giá Sell Order đề xuất:</span>
+              <span id="modal-sell-price">0</span>
+            </div>
+            <div class="breakdown-row">
+              <span>Setup Fee bán (2.5%):</span>
+              <span id="modal-sell-setup">0</span>
+            </div>
+            <div class="breakdown-row">
+              <span id="modal-tax-label">Thuế Market (4.0%):</span>
+              <span id="modal-sell-tax">0</span>
+            </div>
+            <div class="breakdown-row breakdown-total">
+              <span>Thực Nhận Về Ví:</span>
+              <span id="modal-total-revenue" style="color: var(--emerald-light);">0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- How-to Guide in Albion -->
+        <div class="step-guide">
+          <h4>💡 Hướng Dẫn Thực Hiện Trong Game</h4>
+          <ol>
+            <li>Đến Market thành phố <strong><span id="modal-guide-city">Lymhurst</span></strong>.</li>
+            <li>Tìm món: <strong><span id="modal-guide-item-name">Tên Món</span></strong>. Bấm nút 
+              <button type="button" class="btn-secondary" id="btn-copy-item-name" style="padding: 2px 8px; font-size: 11px; margin-left: 4px;">
+                📋 Copy Tên
+              </button>
+            </li>
+            <li>Đặt <strong>Buy Order</strong> với giá: <strong><span id="modal-guide-buy-price">0</span> Silver</strong>.</li>
+            <li>Khi có người bán vào lệnh, nhận món đồ vào hòm đồ rồi tạo <strong>Sell Order</strong> với giá: <strong><span id="modal-guide-sell-price">0</span> Silver</strong>.</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="data/items.js"></script>
+  <script src="js/calculator.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

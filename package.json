@@ -1,0 +1,13 @@
+{
+  "name": "albion-market-flip",
+  "version": "1.0.0",
+  "description": "Albion Online Market Flipping Scanner & Tax Calculator for Asia (East) Server",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "build:catalog": "node build-catalog.js"
+  },
+  "keywords": ["albion-online", "market-flip", "calculator", "asia-server"],
+  "author": "Antigravity",
+  "license": "MIT"
+}
