@@ -117,7 +117,12 @@
     modalGuideItemName: document.getElementById('modal-guide-item-name'),
     modalGuideBuyPrice: document.getElementById('modal-guide-buy-price'),
     modalGuideSellPrice: document.getElementById('modal-guide-sell-price'),
-    btnCopyItemName: document.getElementById('btn-copy-item-name')
+    btnCopyItemName: document.getElementById('btn-copy-item-name'),
+
+    // Handbook Elements
+    openHandbookBtn: document.getElementById('open-handbook-btn'),
+    handbookModal: document.getElementById('handbook-modal'),
+    handbookCloseBtn: document.getElementById('handbook-close-btn')
   };
 
   // Initialize
@@ -271,10 +276,48 @@
       });
     });
 
+    // Handbook Modal Events
+    if (dom.openHandbookBtn && dom.handbookModal) {
+      dom.openHandbookBtn.addEventListener('click', () => {
+        dom.handbookModal.classList.add('is-active');
+      });
+
+      dom.handbookCloseBtn.addEventListener('click', () => {
+        dom.handbookModal.classList.remove('is-active');
+      });
+
+      dom.handbookModal.addEventListener('click', (e) => {
+        if (e.target === dom.handbookModal) {
+          dom.handbookModal.classList.remove('is-active');
+        }
+      });
+
+      // Handbook Tabs Switching
+      const tabBtns = dom.handbookModal.querySelectorAll('.handbook-tab-btn');
+      const tabContents = dom.handbookModal.querySelectorAll('.handbook-content');
+
+      tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          tabBtns.forEach(b => b.classList.remove('active'));
+          tabContents.forEach(c => c.classList.remove('active'));
+
+          btn.classList.add('active');
+          const targetId = `content-${btn.dataset.tab}`;
+          const targetContent = document.getElementById(targetId);
+          if (targetContent) {
+            targetContent.classList.add('active');
+          }
+        });
+      });
+    }
+
     // Keyboard ESC to close modal
     window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && dom.calcModal.classList.contains('is-active')) {
-        closeModal();
+      if (e.key === 'Escape') {
+        if (dom.calcModal.classList.contains('is-active')) closeModal();
+        if (dom.handbookModal && dom.handbookModal.classList.contains('is-active')) {
+          dom.handbookModal.classList.remove('is-active');
+        }
       }
     });
   }

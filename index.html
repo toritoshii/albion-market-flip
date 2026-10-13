@@ -45,6 +45,11 @@
           </div>
         </div>
 
+        <!-- Handbook & Roadmap Button -->
+        <button type="button" class="btn-handbook" id="open-handbook-btn" title="Xem cẩm nang kiếm bạc & Hướng dẫn realtime">
+          <span>📖</span> CẨM NĂNG &amp; LỘ TRÌNH VỐN
+        </button>
+
         <!-- Server Selector -->
         <div class="server-selector" title="Chọn máy chủ Albion Online">
           <label for="server-select" style="margin-right: 6px; color: var(--text-muted); font-size: 11px;">SERVER:</label>
@@ -178,6 +183,8 @@
         <div class="filter-group">
           <label for="max-age-select">Độ Cũ Dữ Liệu</label>
           <select id="max-age-select" class="filter-select">
+            <option value="30">< 30 Phút (Siêu Mới)</option>
+            <option value="60">< 1 Giờ</option>
             <option value="180">< 3 Giờ</option>
             <option value="360">< 6 Giờ</option>
             <option value="720">< 12 Giờ</option>
@@ -260,6 +267,225 @@
       </div>
     </section>
 
+  </div>
+
+  <!-- Trader Handbook & Roadmap Modal -->
+  <div class="modal-backdrop" id="handbook-modal">
+    <div class="modal-dialog handbook-dialog">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="brand-icon" style="width: 44px; height: 44px; font-size: 22px;">📖</div>
+          <div>
+            <h3 style="color: var(--text-primary); font-size: 17px; font-family: var(--font-heading);">
+              CẨM NĂNG TRADER &amp; LỘ TRÌNH VỐN ALBION ONLINE
+            </h3>
+            <div style="font-size: 12px; color: var(--text-muted);">
+              Từ 49k Silver lên triệu phú &amp; Bí kíp cập nhật dữ liệu Realtime 100%
+            </div>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" id="handbook-close-btn" title="Đóng">&times;</button>
+      </div>
+
+      <!-- Tab Buttons -->
+      <div class="handbook-tabs">
+        <button type="button" class="handbook-tab-btn active" data-tab="roadmap" id="tab-btn-roadmap">
+          📊 Lộ Trình Vốn (49k ➔ 100M)
+        </button>
+        <button type="button" class="handbook-tab-btn" data-tab="deathgivers" id="tab-btn-deathgivers">
+          ⚔️ Cày Mists với Deathgivers
+        </button>
+        <button type="button" class="handbook-tab-btn" data-tab="flip-rules" id="tab-btn-flip-rules">
+          💡 Nguyên Lý Đặt Lệnh
+        </button>
+        <button type="button" class="handbook-tab-btn" data-tab="realtime" id="tab-btn-realtime">
+          ⚡ Dữ Liệu Chuẩn 100% Realtime
+        </button>
+      </div>
+
+      <div class="modal-body handbook-body">
+        
+        <!-- Tab 1: Roadmap -->
+        <div class="handbook-content active" id="content-roadmap">
+          <div class="roadmap-milestones">
+            <!-- Level 1 -->
+            <div class="milestone-card border-gold">
+              <div class="milestone-badge">CỘT MỐC 1</div>
+              <div class="milestone-header">
+                <h4>🌱 49k ➔ 1,000,000 Silver: Giai Đoạn Khởi Nghiệp</h4>
+                <span class="milestone-tag">Thời gian: 1 – 2 tiếng</span>
+              </div>
+              <p class="milestone-desc">
+                <strong>Lời khuyên:</strong> Tuyệt đối <em>KHÔNG</em> ngồi chợ flip lúc này! Phí đặt lệnh (setup fee) sẽ ngốn hết vốn nhỏ của bạn.
+              </p>
+              <ul class="milestone-list">
+                <li><strong>Việc cần làm:</strong> Cầm đồ ra <strong>Yellow Zone Mists (Sương mù Vùng Vàng)</strong> mở rương, làm trại quái. An toàn 100%, chết không mất đồ.</li>
+                <li><strong>Cách phụ:</strong> Bật cờ Faction chạy theo đám đông chiếm Outpost ➔ Đổi Faction Heart bán lấy 200k – 300k/cục.</li>
+                <li><strong>Mục tiêu:</strong> Đạt đủ <strong>1M – 2M Silver</strong> để làm vốn ban đầu.</li>
+              </ul>
+            </div>
+
+            <!-- Level 2 -->
+            <div class="milestone-card border-cyan">
+              <div class="milestone-badge" style="background: rgba(6, 182, 212, 0.2); color: #67e8f9; border-color: rgba(6, 182, 212, 0.4);">CỘT MỐC 2</div>
+              <div class="milestone-header">
+                <h4>🎒 1M ➔ 10,000,000 Silver: Tập Sự Thương Buôn</h4>
+                <span class="milestone-tag" style="color: #67e8f9;">Lãi: 300k – 1.5M / ngày</span>
+              </div>
+              <p class="milestone-desc">
+                Bắt đầu mở Web Tool này lên, chọn thành phố bạn đang đứng và quét nhóm <strong>"🔥 Top Hàng Nóng"</strong>.
+              </p>
+              <ul class="milestone-list">
+                <li><strong>Quy tắc chia vốn:</strong> Không all-in! Có 2M thì chia ra đặt 5–10 món (mỗi món 200k–400k).</li>
+                <li><strong>Món hàng vàng:</strong> Đồ tiêu hao chết là mất ➔ Người chơi mua lại 24/7 (Túi T4-T5, Áo choàng Faction T4, Pork Roast, Pork Omelette, Potion máu).</li>
+                <li><strong>Quy trình:</strong> Sáng đặt Buy Order (+1 bạc) ➔ Tối vào gom đồ treo Sell Order (-1 bạc).</li>
+              </ul>
+            </div>
+
+            <!-- Level 3 -->
+            <div class="milestone-card border-emerald">
+              <div class="milestone-badge" style="background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border-color: rgba(16, 185, 129, 0.4);">CỘT MỐC 3</div>
+              <div class="milestone-header">
+                <h4>⚔️ 10M ➔ 50,000,000 Silver: Thương Buôn Thực Thụ</h4>
+                <span class="milestone-tag" style="color: #6ee7b7;">Lãi: 2M – 6M / ngày</span>
+              </div>
+              <ul class="milestone-list">
+                <li><strong>Mở rộng danh mục:</strong> Vũ khí &amp; Giáp Meta T6-T7 (.0, .1), Áo choàng Faction T6, Thú cưỡi (Sói T6, Heo rừng T7, Bò T6-T7).</li>
+                <li><strong>Vòng quay vốn:</strong> Mỗi ngày xoay vòng 10M–20M vốn, lãi 15%–25% đều đặn, tiền sinh ra tiền theo cấp số nhân (lãi kép).</li>
+              </ul>
+            </div>
+
+            <!-- Level 4 -->
+            <div class="milestone-card border-purple">
+              <div class="milestone-badge" style="background: rgba(139, 92, 246, 0.2); color: #c4b5fd; border-color: rgba(139, 92, 246, 0.4);">CỘT MỐC 4</div>
+              <div class="milestone-header">
+                <h4>👑 50M ➔ 100M+ Silver: Đế Chế Tư Bản Albion</h4>
+                <span class="milestone-tag" style="color: #c4b5fd;">Lãi: 10M – 30M+ / ngày</span>
+              </div>
+              <ul class="milestone-list">
+                <li><strong>Bật Premium bắt buộc:</strong> Giảm thuế từ 8% xuống 4% ➔ Tiết kiệm ngay hàng triệu bạc mỗi ngày!</li>
+                <li><strong>Rải lệnh liên thành phố:</strong> Bay người không (Fast Travel) qua cả 6 thành phố để đặt Buy Order, gom hàng số lượng khổng lồ. Dư dả bạc mua Premium cả năm và tài trợ đồ PvP/ZvZ cho cả Guild!</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Deathgivers Guide -->
+        <div class="handbook-content" id="content-deathgivers">
+          <div class="guide-box">
+            <h4 style="color: var(--gold-light); font-size: 15px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+              <span>⚔️</span> Bộ Trang Bị Cày Mists Chuẩn Với Deathgivers (Dưới 20k Silver)
+            </h4>
+            <div class="gear-setup-grid">
+              <div class="gear-slot">
+                <span class="gear-slot-type">Vũ khí (Có sẵn):</span>
+                <strong>Deathgivers (Lưỡi hái tử thần)</strong>
+                <span class="gear-slot-hint">Sát thương đơn mục tiêu cực khủng, skill lướt cơ động</span>
+              </div>
+              <div class="gear-slot">
+                <span class="gear-slot-type">Áo (Bắt buộc):</span>
+                <strong>Mercenary Jacket (Áo da lính đánh thuê)</strong>
+                <span class="gear-slot-hint">Bật skill R (Bloodlust): mỗi đòn chém hồi đầy cây máu, đánh boss quái vô tư</span>
+              </div>
+              <div class="gear-slot">
+                <span class="gear-slot-type">Mũ:</span>
+                <strong>Hunter Hood (Phản dame)</strong> hoặc <strong>Mage Cowl (Phun độc)</strong>
+                <span class="gear-slot-hint">Tăng khả năng sinh tồn hoặc dồn độc đốt boss nhanh</span>
+              </div>
+              <div class="gear-slot">
+                <span class="gear-slot-type">Giày:</span>
+                <strong>Soldier Boots (Ủng chiến binh)</strong>
+                <span class="gear-slot-hint">Lấy Wanderlust hồi phục hoặc chạy trốn</span>
+              </div>
+              <div class="gear-slot" style="grid-column: span 2;">
+                <span class="gear-slot-type">Thức ăn bí mật:</span>
+                <strong>Súp bắp cải (Cabbage Soup T5)</strong>
+                <span class="gear-slot-hint">Giá chỉ ~1k bạc. Đánh quái xong chạy ra ngoài 3 giây là tự hồi 100% máu! Không bao giờ phải ngồi thở</span>
+              </div>
+            </div>
+
+            <div style="margin-top: 18px; padding: 14px; background: rgba(0, 0, 0, 0.4); border-radius: 8px; border-left: 3px solid var(--emerald-profit);">
+              <h5 style="color: var(--emerald-light); font-size: 13px; margin-bottom: 6px;">🔥 Combo Skill Sốc Dame Siêu Tốc:</h5>
+              <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
+                1. Dùng <strong>Q</strong> chém tích đủ <strong>3 cục ngọc tím (3 stack Assassin Spirit)</strong> trên đầu.<br>
+                2. Bấm <strong>E (Ghost Strike)</strong> lướt vào quái: <em>Vì có 3 stack nên skill E sẽ lập tức HỒI CHIÊU NGAY + TÀNG HÌNH!</em><br>
+                3. Bấm tiếp <strong>E lần thứ 2</strong> ngay sau đó ➔ Boss quái tụt máu không kịp thở!
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Flip Rules -->
+        <div class="handbook-content" id="content-flip-rules">
+          <div class="guide-box">
+            <h4 style="color: var(--gold-light); font-size: 15px; margin-bottom: 12px;">
+              💡 Giải Thích Bản Chất: "Tại Sao Vào Chợ Không Thấy Giá Buy Order?"
+            </h4>
+            <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+              <strong style="color: var(--ruby-light);">❌ Sai lầm phổ biến:</strong>
+              <p style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">
+                Nghĩ rằng vào chợ sẽ có ai đó bán sẵn đồ giá rẻ (như 5,004 bạc) để mình bấm "Mua Ngay" về bán lại. <em>Cái này không bao giờ có!</em> Nếu có ai bán rẻ như thế thì hệ thống đã tự khớp lệnh trong 0.1 giây.
+              </p>
+            </div>
+
+            <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+              <strong style="color: var(--emerald-light);">✅ Quy trình Flip tại chỗ chuẩn 4 bước:</strong>
+              <ol style="font-size: 13px; color: var(--text-secondary); padding-left: 20px; margin-top: 8px; display: flex; flex-direction: column; gap: 8px;">
+                <li><strong>Bước 1:</strong> Bạn bấm vào món đồ ➔ Chọn <strong>"Lập Lệnh Mua" (Create Buy Order)</strong>. Đặt giá cao hơn đối thủ 1 bạc (Ví dụ: đối thủ cao nhất là 5,003 thì bạn đặt <strong>5,004 bạc</strong>).</li>
+                <li><strong>Bước 2:</strong> Người chơi khác đi farm về hoặc cần tiền gấp, họ bấm <strong>"Bán Ngay" (Instant Sell)</strong> ➔ Game tự động bán đồ của họ vào lệnh 5,004 bạc của bạn.</li>
+                <li><strong>Bước 3:</strong> Bạn nhận đồ giá rẻ về hòm, chọn <strong>"Tạo Lệnh Bán" (Create Sell Order)</strong> với giá rẻ hơn đối thủ 1 bạc (Ví dụ: <strong>7,237 bạc</strong>).</li>
+                <li><strong>Bước 4:</strong> Người chơi cần mua gấp bấm <strong>"Mua Ngay" (Instant Buy)</strong> ➔ Mua trúng món của bạn. Trừ thuế &amp; phí, bạn đút túi lời ròng!</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 4: Realtime Data -->
+        <div class="handbook-content" id="content-realtime">
+          <div class="guide-box">
+            <h4 style="color: var(--gold-light); font-size: 15px; margin-bottom: 10px;">
+              ⚡ Cách Có Dữ Liệu CHUẨN NHẤT 100% Và MỚI TỨC THÌ (0s Trước)
+            </h4>
+            <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
+              Dữ liệu trên web được lấy từ dự án cộng đồng <strong>AODP</strong>. Để dữ liệu ở thành phố của bạn luôn mới 100% chuẩn từng giây, bạn có 2 giải pháp:
+            </p>
+
+            <!-- Option A -->
+            <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-glow-gold); border-radius: 8px; padding: 16px; margin-bottom: 14px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <h5 style="color: var(--gold-light); font-size: 14px;">Cách 1: Cài đặt Albion Data Client (Chạy Ngầm Siêu Nhẹ)</h5>
+                <span class="badge-tier" style="font-size: 11px;">Khuyên Dùng Số 1</span>
+              </div>
+              <p style="font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 10px;">
+                Phần mềm chính thức của cộng đồng AODP (100% hợp lệ, an toàn, dev Sandbox Interactive cho phép dùng vì chỉ đọc gói tin mạng, không can thiệp game).
+              </p>
+              <div style="background: rgba(0,0,0,0.4); padding: 10px 14px; border-radius: 6px; font-size: 12px; color: #cbd5e1; margin-bottom: 12px;">
+                <strong>Cơ chế:</strong> Khi bạn bật app này chạy dưới khay hệ thống, mỗi khi bạn mở NPC Chợ trong game lướt xem đồ, app sẽ tự động bắt gói tin gửi lên server. Khi bạn quay lại web này bấm <strong>Quét</strong>, toàn bộ giá sẽ hiển thị là <strong>"Vừa xong (0s trước)"</strong> chuẩn 100%!
+              </div>
+              <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <a href="https://github.com/ao-data/albiondata-client/releases/download/0.1.60/albiondata-client-amd64-installer.exe" target="_blank" class="btn-primary" style="font-size: 12px; padding: 8px 16px; text-decoration: none;">
+                  ⬇️ Tải Albion Data Client Installer (.exe)
+                </a>
+                <a href="https://github.com/ao-data/albiondata-client" target="_blank" class="btn-secondary" style="font-size: 12px; padding: 7px 14px; text-decoration: none;">
+                  🔗 Xem GitHub Dự Án AODP
+                </a>
+              </div>
+            </div>
+
+            <!-- Option B -->
+            <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 16px;">
+              <h5 style="color: #67e8f9; font-size: 14px; margin-bottom: 6px;">Cách 2: Sử Dụng Bộ Lọc "Độ Cũ Dữ Liệu" Trên Web</h5>
+              <p style="font-size: 12px; color: var(--text-secondary); line-height: 1.5;">
+                Nếu bạn lười cài app, ở thanh lọc trên trang chủ, hãy chỉnh mục <strong>Độ Cũ Dữ Liệu</strong> thành:
+                <br>• <strong>&lt; 30 Phút (Siêu Mới)</strong> hoặc <strong>&lt; 1 Giờ</strong>.
+                <br>Tool sẽ tự động lọc sạch toàn bộ dữ liệu cũ, chỉ giữ lại các món vừa mới được người chơi khác soi chợ cập nhật gần đây nhất!
+              </p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
   </div>
 
   <!-- Detail Calculator Modal -->
