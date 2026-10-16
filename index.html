@@ -26,7 +26,7 @@
             ALBION MARKET FLIP
             <span class="server-tag" id="current-server-badge">ASIA EAST</span>
           </h1>
-          <p class="brand-subtitle">Máy quét chênh lệch Buy / Sell Order tại chỗ &amp; tính thuế Premium chuẩn 100%</p>
+          <p class="brand-subtitle">Flip tại chỗ, chạy hàng giữa thành phố &amp; Black Market — có volume bán/ngày</p>
         </div>
       </div>
 
@@ -103,9 +103,18 @@
 
     <!-- Control Center & Filter Panel -->
     <main class="control-panel">
+      <!-- Strategy Mode Bar -->
+      <div class="categories-bar modes-bar" id="mode-container">
+        <span class="cities-label">🧭 Chiến thuật:</span>
+        <button type="button" class="cat-btn active" data-mode="stationary" title="Đặt Buy Order rồi Sell Order trong cùng 1 thành phố">⚖️ Flip Tại Chỗ</button>
+        <button type="button" class="cat-btn" data-mode="transport" title="Mua ở thành phố này, chở sang thành phố khác bán">🐂 Chạy Hàng Giữa Thành Phố</button>
+        <button type="button" class="cat-btn" data-mode="blackmarket" title="Mua gear ở thành phố, bán ngay cho Black Market ở Caerleon">🏴 Black Market</button>
+      </div>
+
       <!-- Cities Bar -->
       <div class="cities-bar" id="cities-container">
-        <span class="cities-label">📍 Chọn Thành Phố:</span>
+        <span class="cities-label" id="cities-label">📍 Chọn Thành Phố:</span>
+        <button type="button" class="city-btn city-btn-all is-hidden" data-city="ALL" id="btn-city-all">🌐 Mọi Thành Phố</button>
         <button type="button" class="city-btn active" data-city="Lymhurst" id="btn-city-lymhurst">🌲 Lymhurst</button>
         <button type="button" class="city-btn" data-city="Fort Sterling" id="btn-city-fort-sterling">🏔️ Fort Sterling</button>
         <button type="button" class="city-btn" data-city="Thetford" id="btn-city-thetford">🌿 Thetford</button>
@@ -124,7 +133,30 @@
         <button type="button" class="cat-btn" data-cat="mounts" id="cat-btn-mounts">🐎 Thú Cưỡi</button>
         <button type="button" class="cat-btn" data-cat="consumables" id="cat-btn-consumables">🧪 Thức Ăn &amp; Thuốc</button>
         <button type="button" class="cat-btn" data-cat="materials" id="cat-btn-materials">🪵 Nguyên Liệu &amp; Đá</button>
-        <button type="button" class="cat-btn" data-cat="all" id="cat-btn-all">✨ Tất Cả (1700+ Items)</button>
+        <button type="button" class="cat-btn" data-cat="all" id="cat-btn-all">✨ Tất Cả (<span id="catalog-count">0</span> Items)</button>
+      </div>
+
+      <!-- Mode-specific options -->
+      <div class="mode-options is-hidden" id="mode-options">
+        <div class="filter-group">
+          <label for="buy-type-select">Cách mua</label>
+          <select id="buy-type-select" class="filter-select">
+            <option value="instant" selected>Mua ngay (lấy Sell Order rẻ nhất)</option>
+            <option value="order">Đặt Buy Order (rẻ hơn, phải chờ)</option>
+          </select>
+        </div>
+        <div class="filter-group" id="sell-type-group">
+          <label for="sell-type-select">Cách bán ở nơi đến</label>
+          <select id="sell-type-select" class="filter-select">
+            <option value="order" selected>Đặt Sell Order (giá cao, phải chờ)</option>
+            <option value="instant">Bán ngay vào Buy Order</option>
+          </select>
+        </div>
+        <label class="option-check" id="avoid-caerleon-group" title="Đường vào/ra Caerleon đi qua vùng đỏ, dễ bị gank">
+          <input type="checkbox" id="avoid-caerleon" checked>
+          <span>Tránh Caerleon (vùng đỏ)</span>
+        </label>
+        <div class="mode-note" id="mode-note"></div>
       </div>
 
       <!-- Detailed Filters Grid -->
@@ -149,11 +181,12 @@
         <div class="filter-group">
           <label for="enchant-select">Cường Hóa (Enchant)</label>
           <select id="enchant-select" class="filter-select">
-            <option value="all" selected>Tất cả (.0 - .3)</option>
+            <option value="all" selected>Tất cả (.0 - .4)</option>
             <option value="0">.0 (Không enchant)</option>
             <option value="1">.1 (Xanh lá)</option>
             <option value="2">.2 (Xanh lam)</option>
             <option value="3">.3 (Tím)</option>
+            <option value="4">.4 (Vàng)</option>
           </select>
         </div>
 
@@ -190,6 +223,27 @@
             <option value="720">< 12 Giờ</option>
             <option value="1440" selected>< 24 Giờ</option>
             <option value="0">Tất cả mọi lúc</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="min-volume-select">Bán tối thiểu / ngày</label>
+          <select id="min-volume-select" class="filter-select" title="Số món bán ra trung bình mỗi ngày (7 ngày gần nhất) ở nơi bạn bán">
+            <option value="0" selected>Không lọc</option>
+            <option value="5">>= 5 món</option>
+            <option value="20">>= 20 món</option>
+            <option value="50">>= 50 món</option>
+            <option value="200">>= 200 món</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="spread-select">Lọc giá ảo (Bán / Mua)</label>
+          <select id="spread-select" class="filter-select" title="Bỏ các cặp giá chênh quá nhiều lần — thường là lệnh troll hoặc dữ liệu cũ">
+            <option value="2">Chênh tối đa 2x</option>
+            <option value="3" selected>Chênh tối đa 3x</option>
+            <option value="5">Chênh tối đa 5x</option>
+            <option value="0">Tắt</option>
           </select>
         </div>
       </div>
@@ -243,18 +297,20 @@
           <thead>
             <tr>
               <th data-sort="name">Vật Phẩm</th>
-              <th data-sort="buyPrice">Buy Order (Mua)</th>
-              <th data-sort="sellPrice">Sell Order (Bán)</th>
+              <th data-sort="buyPrice">Giá Mua</th>
+              <th data-sort="sellPrice">Giá Bán</th>
               <th data-sort="unitCost">Vốn Đầu Tư</th>
               <th data-sort="unitNetProfit" class="sorted-desc">Lợi Nhuận Ròng</th>
               <th data-sort="roi">ROI (%)</th>
-              <th data-sort="freshness">Cập Nhật</th>
+              <th data-sort="volume" title="Trung bình số món bán ra mỗi ngày (7 ngày) ở nơi bán">Bán / Ngày</th>
+              <th data-sort="profitPerDay" title="Lời ước tính nếu bạn chiếm 10% lượng bán mỗi ngày">Lời / Ngày ~</th>
+              <th data-sort="minutes">Cập Nhật</th>
               <th style="text-align: center;">Thao Tác</th>
             </tr>
           </thead>
           <tbody id="market-table-body">
             <tr>
-              <td colspan="8">
+              <td colspan="10">
                 <div class="empty-state">
                   <div class="empty-state-icon">⚖️</div>
                   <h3>Sẵn Sàng Quét Thị Trường</h3>
@@ -532,11 +588,11 @@
           <!-- Buy side -->
           <div class="breakdown-box">
             <div class="breakdown-title">
-              <span>ĐẶT LỆNH MUA (BUY ORDER)</span>
+              <span id="modal-buy-title">ĐẶT LỆNH MUA (BUY ORDER)</span>
               <span>📥</span>
             </div>
             <div class="breakdown-row">
-              <span>Giá Buy Order đề xuất:</span>
+              <span id="modal-buy-price-label">Giá Buy Order đề xuất:</span>
               <span id="modal-buy-price">0</span>
             </div>
             <div class="breakdown-row">
@@ -552,11 +608,11 @@
           <!-- Sell side -->
           <div class="breakdown-box">
             <div class="breakdown-title">
-              <span>ĐẶT LỆNH BÁN (SELL ORDER)</span>
+              <span id="modal-sell-title">ĐẶT LỆNH BÁN (SELL ORDER)</span>
               <span>📤</span>
             </div>
             <div class="breakdown-row">
-              <span>Giá Sell Order đề xuất:</span>
+              <span id="modal-sell-price-label">Giá Sell Order đề xuất:</span>
               <span id="modal-sell-price">0</span>
             </div>
             <div class="breakdown-row">
@@ -576,17 +632,12 @@
 
         <!-- How-to Guide in Albion -->
         <div class="step-guide">
-          <h4>💡 Hướng Dẫn Thực Hiện Trong Game</h4>
-          <ol>
-            <li>Đến Market thành phố <strong><span id="modal-guide-city">Lymhurst</span></strong>.</li>
-            <li>Tìm món: <strong><span id="modal-guide-item-name">Tên Món</span></strong>. Bấm nút 
-              <button type="button" class="btn-secondary" id="btn-copy-item-name" style="padding: 2px 8px; font-size: 11px; margin-left: 4px;">
-                📋 Copy Tên
-              </button>
-            </li>
-            <li>Đặt <strong>Buy Order</strong> với giá: <strong><span id="modal-guide-buy-price">0</span> Silver</strong>.</li>
-            <li>Khi có người bán vào lệnh, nhận món đồ vào hòm đồ rồi tạo <strong>Sell Order</strong> với giá: <strong><span id="modal-guide-sell-price">0</span> Silver</strong>.</li>
-          </ol>
+          <h4>💡 Hướng Dẫn Thực Hiện Trong Game
+            <button type="button" class="btn-secondary" id="btn-copy-item-name" style="padding: 2px 8px; font-size: 11px; margin-left: 8px;">
+              📋 Copy Tên
+            </button>
+          </h4>
+          <ol id="modal-guide-steps"></ol>
         </div>
       </div>
     </div>
@@ -596,6 +647,7 @@
   <script src="data/items.js"></script>
   <script src="js/calculator.js"></script>
   <script src="js/api.js"></script>
+  <script src="js/strategies.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

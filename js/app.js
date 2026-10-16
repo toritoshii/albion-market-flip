@@ -1,216 +1,241 @@
 /**
- * Albion Market Flip - Application Logic
+ * Albion Market Flip - Application Logic (v2)
+ *  - Prices for every city + Black Market are fetched once per scan; switching city,
+ *    mode or Premium only recalculates.
+ *  - Sales volume (history API) is loaded in the background for the best candidates.
  */
 
 (function () {
   'use strict';
 
-  // App State
+  const ROW_LIMIT = 300;          // rows rendered at once (DOM stays fast)
+  const VOLUME_CANDIDATES = 200;  // top opportunities we fetch sales history for
+
   const state = {
     server: 'east',
     city: 'Lymhurst',
+    mode: 'stationary',
     category: 'hot',
     hasPremium: true,
     isScanning: false,
-    
-    // Filters
+
+    buyType: 'instant',
+    sellType: 'order',
+    avoidCaerleon: true,
+
     search: '',
     tier: 'all',
     enchant: 'all',
     maxBudget: 0,
     minProfit: 1000,
-    maxAgeMinutes: 1440, // 24 hours
+    maxAgeMinutes: 1440,
+    minVolume: 0,
+    maxSpread: 3,
 
-    // Sorting
     sortField: 'unitNetProfit',
     sortAsc: false,
 
-    // Raw Data & Processed Data
-    allScannedData: [],
-    processedItems: [],
+    scannedCategory: null,
+    index: null,
+    opportunities: [],
 
-    // Modal Item
+    volumeRunning: false,
+    volumeRerun: false,
+
     modalItem: null,
     modalQty: 1
   };
 
+  const itemMap = new Map();
+  (window.ALBION_ITEMS || []).forEach(it => itemMap.set(it.id, it));
+
+  const MODE_INFO = {
+    stationary: {
+      citiesLabel: '📍 Thành phố đang đứng:',
+      note: ''
+    },
+    transport: {
+      citiesLabel: '📍 Mua ở:',
+      note: 'Tool tự chọn thành phố bán có lời nhất. Nhớ tính thời gian chạy đường và rủi ro bị gank khi đi qua vùng đỏ/đen. Brecilien nằm trong Mists, đi bằng portal.'
+    },
+    blackmarket: {
+      citiesLabel: '📍 Mua ở:',
+      note: 'Black Market nằm ở Caerleon và chỉ mua gear (vũ khí, giáp, túi, áo choàng). Bán cho Black Market = bán ngay, chỉ mất thuế, không mất setup fee. Mua ngay tại Caerleon thì không phải chở qua vùng đỏ.'
+    }
+  };
+
+  const $ = id => document.getElementById(id);
+  const dom = {
+    premiumToggle: $('premium-toggle'),
+    premiumCard: $('premium-card'),
+    premiumStatusTitle: $('premium-status-title'),
+    premiumStatusDesc: $('premium-status-desc'),
+    serverSelect: $('server-select'),
+    currentServerBadge: $('current-server-badge'),
+
+    modeContainer: $('mode-container'),
+    citiesContainer: $('cities-container'),
+    citiesLabel: $('cities-label'),
+    cityAllBtn: $('btn-city-all'),
+    categoryPresets: $('category-presets'),
+    catalogCount: $('catalog-count'),
+
+    modeOptions: $('mode-options'),
+    buyTypeSelect: $('buy-type-select'),
+    sellTypeSelect: $('sell-type-select'),
+    sellTypeGroup: $('sell-type-group'),
+    avoidCaerleon: $('avoid-caerleon'),
+    avoidCaerleonGroup: $('avoid-caerleon-group'),
+    modeNote: $('mode-note'),
+
+    searchInput: $('search-input'),
+    tierSelect: $('tier-select'),
+    enchantSelect: $('enchant-select'),
+    budgetSelect: $('budget-select'),
+    minProfitSelect: $('min-profit-select'),
+    maxAgeSelect: $('max-age-select'),
+    minVolumeSelect: $('min-volume-select'),
+    spreadSelect: $('spread-select'),
+
+    scanBtn: $('scan-btn'),
+    refreshBtn: $('refresh-btn'),
+    resetBtn: $('reset-btn'),
+    scanStatusText: $('scan-status-text'),
+
+    progressContainer: $('progress-container'),
+    progressBar: $('progress-bar'),
+    progressLabel: $('progress-label'),
+    progressPercent: $('progress-percent'),
+
+    marketTableBody: $('market-table-body'),
+    marketResultsTable: $('market-results-table'),
+    filteredItemsCount: $('filtered-items-count'),
+
+    statOpportunities: $('stat-opportunities'),
+    statOpportunitiesSub: $('stat-opportunities-sub'),
+    statMaxProfit: $('stat-max-profit'),
+    statAvgRoi: $('stat-avg-roi'),
+    statCurrentCity: $('stat-current-city'),
+    statFreshness: $('stat-freshness'),
+
+    calcModal: $('calc-modal'),
+    modalCloseBtn: $('modal-close-btn'),
+    modalImg: $('modal-img'),
+    modalItemName: $('modal-item-name'),
+    modalItemEn: $('modal-item-en'),
+    calcQtyInput: $('calc-qty-input'),
+    qtyMinus: $('qty-minus'),
+    qtyPlus: $('qty-plus'),
+
+    modalSummaryProfit: $('modal-summary-profit'),
+    modalSummaryRoi: $('modal-summary-roi'),
+    modalBuyTitle: $('modal-buy-title'),
+    modalBuyPriceLabel: $('modal-buy-price-label'),
+    modalBuyPrice: $('modal-buy-price'),
+    modalBuySetup: $('modal-buy-setup'),
+    modalTotalBuy: $('modal-total-buy'),
+    modalSellTitle: $('modal-sell-title'),
+    modalSellPriceLabel: $('modal-sell-price-label'),
+    modalSellPrice: $('modal-sell-price'),
+    modalSellSetup: $('modal-sell-setup'),
+    modalTaxLabel: $('modal-tax-label'),
+    modalSellTax: $('modal-sell-tax'),
+    modalTotalRevenue: $('modal-total-revenue'),
+    modalGuideSteps: $('modal-guide-steps'),
+    btnCopyItemName: $('btn-copy-item-name'),
+
+    openHandbookBtn: $('open-handbook-btn'),
+    handbookModal: $('handbook-modal'),
+    handbookCloseBtn: $('handbook-close-btn')
+  };
+
+  function esc(str) {
+    return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
   function getItemsForScan() {
     const all = window.ALBION_ITEMS || [];
-    if (state.category === 'all') {
-      return all;
-    }
-    if (state.category === 'hot') {
-      // Pick high liquidity items
-      return all.filter(it => {
-        if (it.category === 'accessories') return true;
-        if (it.category === 'mounts') return true;
-        if (it.category === 'consumables') return true;
-        if (it.category === 'weapons' && it.tier <= 6) return true;
-        if (it.category === 'armor' && it.tier <= 6) return true;
-        return false;
-      });
-    }
+    if (state.category === 'all') return all;
+    if (state.category === 'hot') return all.filter(it => it.hot);
     return all.filter(it => it.category === state.category);
   }
 
-  // DOM Elements
-  const dom = {
-    premiumToggle: document.getElementById('premium-toggle'),
-    premiumCard: document.getElementById('premium-card'),
-    premiumStatusTitle: document.getElementById('premium-status-title'),
-    premiumStatusDesc: document.getElementById('premium-status-desc'),
-    serverSelect: document.getElementById('server-select'),
-    currentServerBadge: document.getElementById('current-server-badge'),
+  // ---------- Init & events ----------
 
-    citiesContainer: document.getElementById('cities-container'),
-    categoryPresets: document.getElementById('category-presets'),
-    
-    searchInput: document.getElementById('search-input'),
-    tierSelect: document.getElementById('tier-select'),
-    enchantSelect: document.getElementById('enchant-select'),
-    budgetSelect: document.getElementById('budget-select'),
-    minProfitSelect: document.getElementById('min-profit-select'),
-    maxAgeSelect: document.getElementById('max-age-select'),
-
-    scanBtn: document.getElementById('scan-btn'),
-    refreshBtn: document.getElementById('refresh-btn'),
-    resetBtn: document.getElementById('reset-btn'),
-    scanStatusText: document.getElementById('scan-status-text'),
-
-    progressContainer: document.getElementById('progress-container'),
-    progressBar: document.getElementById('progress-bar'),
-    progressLabel: document.getElementById('progress-label'),
-    progressPercent: document.getElementById('progress-percent'),
-
-    marketTableBody: document.getElementById('market-table-body'),
-    marketResultsTable: document.getElementById('market-results-table'),
-    filteredItemsCount: document.getElementById('filtered-items-count'),
-
-    statOpportunities: document.getElementById('stat-opportunities'),
-    statOpportunitiesSub: document.getElementById('stat-opportunities-sub'),
-    statMaxProfit: document.getElementById('stat-max-profit'),
-    statAvgRoi: document.getElementById('stat-avg-roi'),
-    statCurrentCity: document.getElementById('stat-current-city'),
-
-    // Modal Elements
-    calcModal: document.getElementById('calc-modal'),
-    modalCloseBtn: document.getElementById('modal-close-btn'),
-    modalImg: document.getElementById('modal-img'),
-    modalItemName: document.getElementById('modal-item-name'),
-    modalItemEn: document.getElementById('modal-item-en'),
-    calcQtyInput: document.getElementById('calc-qty-input'),
-    qtyMinus: document.getElementById('qty-minus'),
-    qtyPlus: document.getElementById('qty-plus'),
-
-    modalSummaryProfit: document.getElementById('modal-summary-profit'),
-    modalSummaryRoi: document.getElementById('modal-summary-roi'),
-    modalBuyPrice: document.getElementById('modal-buy-price'),
-    modalBuySetup: document.getElementById('modal-buy-setup'),
-    modalTotalBuy: document.getElementById('modal-total-buy'),
-    modalSellPrice: document.getElementById('modal-sell-price'),
-    modalSellSetup: document.getElementById('modal-sell-setup'),
-    modalTaxLabel: document.getElementById('modal-tax-label'),
-    modalSellTax: document.getElementById('modal-sell-tax'),
-    modalTotalRevenue: document.getElementById('modal-total-revenue'),
-
-    modalGuideCity: document.getElementById('modal-guide-city'),
-    modalGuideItemName: document.getElementById('modal-guide-item-name'),
-    modalGuideBuyPrice: document.getElementById('modal-guide-buy-price'),
-    modalGuideSellPrice: document.getElementById('modal-guide-sell-price'),
-    btnCopyItemName: document.getElementById('btn-copy-item-name'),
-
-    // Handbook Elements
-    openHandbookBtn: document.getElementById('open-handbook-btn'),
-    handbookModal: document.getElementById('handbook-modal'),
-    handbookCloseBtn: document.getElementById('handbook-close-btn')
-  };
-
-  // Initialize
   function init() {
+    dom.catalogCount.textContent = (window.ALBION_ITEMS || []).length.toLocaleString('en-US');
     setupEventListeners();
     updatePremiumUI();
-    dom.statCurrentCity.textContent = state.city;
+    updateModeUI();
+    updateCityStat();
   }
 
-  // Event Listeners
   function setupEventListeners() {
-    // Premium Switch
-    dom.premiumToggle.addEventListener('change', (e) => {
+    dom.premiumToggle.addEventListener('change', e => {
       state.hasPremium = e.target.checked;
       updatePremiumUI();
       recalculateAll();
     });
 
-    // Server Selection
-    dom.serverSelect.addEventListener('change', (e) => {
+    dom.serverSelect.addEventListener('change', e => {
       state.server = e.target.value;
       AlbionAPI.setServer(state.server);
       dom.currentServerBadge.textContent = state.server.toUpperCase();
-      state.allScannedData = [];
+      state.index = null;
+      state.scannedCategory = null;
+      state.opportunities = [];
       clearTable();
-      updateStats();
+      updateStats([]);
     });
 
-    // City Selection
-    dom.citiesContainer.addEventListener('click', (e) => {
+    dom.modeContainer.addEventListener('click', e => {
+      const btn = e.target.closest('[data-mode]');
+      if (!btn) return;
+      state.mode = btn.dataset.mode;
+      if (state.mode === 'stationary' && state.city === 'ALL') setActiveCity('Lymhurst');
+      updateModeUI();
+      recalcOrScan();
+    });
+
+    dom.citiesContainer.addEventListener('click', e => {
       const btn = e.target.closest('.city-btn');
       if (!btn) return;
-      document.querySelectorAll('.city-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      state.city = btn.dataset.city;
-      dom.statCurrentCity.textContent = state.city;
-      // Auto trigger scan or refresh if already had data
-      startScan(false);
+      setActiveCity(btn.dataset.city);
+      recalcOrScan();
     });
 
-    // Category Quick Filters
-    dom.categoryPresets.addEventListener('click', (e) => {
+    dom.categoryPresets.addEventListener('click', e => {
       const btn = e.target.closest('.cat-btn');
       if (!btn) return;
-      document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('#category-presets .cat-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       state.category = btn.dataset.cat;
       startScan(false);
     });
 
-    // Filter Controls
-    dom.searchInput.addEventListener('input', (e) => {
+    dom.buyTypeSelect.addEventListener('change', e => { state.buyType = e.target.value; recalculateAll(); });
+    dom.sellTypeSelect.addEventListener('change', e => { state.sellType = e.target.value; recalculateAll(); });
+    dom.avoidCaerleon.addEventListener('change', e => { state.avoidCaerleon = e.target.checked; recalculateAll(); });
+
+    dom.searchInput.addEventListener('input', e => {
       state.search = e.target.value.trim().toLowerCase();
       applyFiltersAndRender();
     });
+    const bindSelect = (el, key, parse = v => parseInt(v, 10)) =>
+      el.addEventListener('change', e => { state[key] = parse(e.target.value); applyFiltersAndRender(); });
+    bindSelect(dom.tierSelect, 'tier', v => v);
+    bindSelect(dom.enchantSelect, 'enchant', v => v);
+    bindSelect(dom.budgetSelect, 'maxBudget');
+    bindSelect(dom.minProfitSelect, 'minProfit');
+    bindSelect(dom.maxAgeSelect, 'maxAgeMinutes');
+    bindSelect(dom.minVolumeSelect, 'minVolume');
+    dom.spreadSelect.addEventListener('change', e => { state.maxSpread = parseFloat(e.target.value); recalculateAll(); });
 
-    dom.tierSelect.addEventListener('change', (e) => {
-      state.tier = e.target.value;
-      applyFiltersAndRender();
-    });
-
-    dom.enchantSelect.addEventListener('change', (e) => {
-      state.enchant = e.target.value;
-      applyFiltersAndRender();
-    });
-
-    dom.budgetSelect.addEventListener('change', (e) => {
-      state.maxBudget = parseInt(e.target.value, 10);
-      applyFiltersAndRender();
-    });
-
-    dom.minProfitSelect.addEventListener('change', (e) => {
-      state.minProfit = parseInt(e.target.value, 10);
-      applyFiltersAndRender();
-    });
-
-    dom.maxAgeSelect.addEventListener('change', (e) => {
-      state.maxAgeMinutes = parseInt(e.target.value, 10);
-      applyFiltersAndRender();
-    });
-
-    // Scan buttons
     dom.scanBtn.addEventListener('click', () => startScan(false));
     dom.refreshBtn.addEventListener('click', () => startScan(true));
     dom.resetBtn.addEventListener('click', resetFilters);
 
-    // Sorting headers
-    dom.marketResultsTable.querySelector('thead').addEventListener('click', (e) => {
+    dom.marketResultsTable.querySelector('thead').addEventListener('click', e => {
       const th = e.target.closest('th');
       if (!th || !th.dataset.sort) return;
       const field = th.dataset.sort;
@@ -218,37 +243,28 @@
         state.sortAsc = !state.sortAsc;
       } else {
         state.sortField = field;
-        state.sortAsc = (field === 'name' || field === 'unitCost');
+        state.sortAsc = (field === 'name' || field === 'unitCost' || field === 'minutes');
       }
       updateSortHeaderUI();
       applyFiltersAndRender();
     });
 
-    // Row click -> Open Modal
-    dom.marketTableBody.addEventListener('click', (e) => {
-      const row = e.target.closest('tr[data-item-id]');
+    dom.marketTableBody.addEventListener('click', e => {
+      const row = e.target.closest('tr[data-key]');
       if (!row) return;
-      const itemId = row.dataset.itemId;
-      const quality = parseInt(row.dataset.quality || 1, 10);
-      const found = state.processedItems.find(it => it.id === itemId && it.quality === quality);
-      if (found) {
-        openModal(found);
-      }
+      const found = state.opportunities.find(it => it.key === row.dataset.key);
+      if (found) openModal(found);
     });
 
-    // Modal Events
     dom.modalCloseBtn.addEventListener('click', closeModal);
-    dom.calcModal.addEventListener('click', (e) => {
-      if (e.target === dom.calcModal) closeModal();
-    });
+    dom.calcModal.addEventListener('click', e => { if (e.target === dom.calcModal) closeModal(); });
 
-    dom.calcQtyInput.addEventListener('input', (e) => {
+    dom.calcQtyInput.addEventListener('input', e => {
       let val = parseInt(e.target.value, 10);
       if (isNaN(val) || val < 1) val = 1;
       state.modalQty = val;
       updateModalCalculations();
     });
-
     dom.qtyMinus.addEventListener('click', () => {
       if (state.modalQty > 1) {
         state.modalQty--;
@@ -256,163 +272,151 @@
         updateModalCalculations();
       }
     });
-
     dom.qtyPlus.addEventListener('click', () => {
       state.modalQty++;
       dom.calcQtyInput.value = state.modalQty;
       updateModalCalculations();
     });
 
-    // Copy Item Name
     dom.btnCopyItemName.addEventListener('click', () => {
       if (!state.modalItem) return;
-      const copyText = state.modalItem.enName || state.modalItem.name;
-      navigator.clipboard.writeText(copyText).then(() => {
-        const originalText = dom.btnCopyItemName.innerHTML;
+      navigator.clipboard.writeText(state.modalItem.enName || state.modalItem.name).then(() => {
+        const original = dom.btnCopyItemName.innerHTML;
         dom.btnCopyItemName.innerHTML = '✅ Đã Copy!';
-        setTimeout(() => {
-          dom.btnCopyItemName.innerHTML = originalText;
-        }, 1500);
+        setTimeout(() => { dom.btnCopyItemName.innerHTML = original; }, 1500);
       });
     });
 
-    // Handbook Modal Events
     if (dom.openHandbookBtn && dom.handbookModal) {
-      dom.openHandbookBtn.addEventListener('click', () => {
-        dom.handbookModal.classList.add('is-active');
+      dom.openHandbookBtn.addEventListener('click', () => dom.handbookModal.classList.add('is-active'));
+      dom.handbookCloseBtn.addEventListener('click', () => dom.handbookModal.classList.remove('is-active'));
+      dom.handbookModal.addEventListener('click', e => {
+        if (e.target === dom.handbookModal) dom.handbookModal.classList.remove('is-active');
       });
-
-      dom.handbookCloseBtn.addEventListener('click', () => {
-        dom.handbookModal.classList.remove('is-active');
-      });
-
-      dom.handbookModal.addEventListener('click', (e) => {
-        if (e.target === dom.handbookModal) {
-          dom.handbookModal.classList.remove('is-active');
-        }
-      });
-
-      // Handbook Tabs Switching
       const tabBtns = dom.handbookModal.querySelectorAll('.handbook-tab-btn');
       const tabContents = dom.handbookModal.querySelectorAll('.handbook-content');
-
-      tabBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-          tabBtns.forEach(b => b.classList.remove('active'));
-          tabContents.forEach(c => c.classList.remove('active'));
-
-          btn.classList.add('active');
-          const targetId = `content-${btn.dataset.tab}`;
-          const targetContent = document.getElementById(targetId);
-          if (targetContent) {
-            targetContent.classList.add('active');
-          }
-        });
-      });
+      tabBtns.forEach(btn => btn.addEventListener('click', () => {
+        tabBtns.forEach(b => b.classList.remove('active'));
+        tabContents.forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        const target = document.getElementById(`content-${btn.dataset.tab}`);
+        if (target) target.classList.add('active');
+      }));
     }
 
-    // Keyboard ESC to close modal
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        if (dom.calcModal.classList.contains('is-active')) closeModal();
-        if (dom.handbookModal && dom.handbookModal.classList.contains('is-active')) {
-          dom.handbookModal.classList.remove('is-active');
-        }
-      }
+    window.addEventListener('keydown', e => {
+      if (e.key !== 'Escape') return;
+      if (dom.calcModal.classList.contains('is-active')) closeModal();
+      if (dom.handbookModal) dom.handbookModal.classList.remove('is-active');
     });
   }
 
-  // Update Premium visual state
+  function setActiveCity(city) {
+    state.city = city;
+    document.querySelectorAll('.city-btn').forEach(b => b.classList.toggle('active', b.dataset.city === city));
+    updateCityStat();
+  }
+
+  function recalcOrScan() {
+    if (state.index && state.scannedCategory === state.category) recalculateAll();
+    else startScan(false);
+  }
+
+  // ---------- UI state ----------
+
   function updatePremiumUI() {
+    dom.premiumCard.classList.toggle('is-active', state.hasPremium);
+    dom.premiumCard.classList.toggle('is-inactive', !state.hasPremium);
     if (state.hasPremium) {
-      dom.premiumCard.classList.remove('is-inactive');
-      dom.premiumCard.classList.add('is-active');
       dom.premiumStatusTitle.innerHTML = '🌟 PREMIUM ACTIVE';
-      dom.premiumStatusDesc.innerHTML = 'Thuế Market: <strong class="premium-badge-tax">4.0%</strong> | Setup: <strong>2.5%</strong> (Tổng phí 6.5%)';
+      dom.premiumStatusDesc.innerHTML = 'Thuế bán: <strong class="premium-badge-tax">4.0%</strong> | Setup lệnh: <strong>2.5%</strong>';
     } else {
-      dom.premiumCard.classList.remove('is-active');
-      dom.premiumCard.classList.add('is-inactive');
       dom.premiumStatusTitle.innerHTML = '❌ KHÔNG PREMIUM';
-      dom.premiumStatusDesc.innerHTML = 'Thuế Market: <strong style="color: var(--ruby-light)">8.0%</strong> | Setup: <strong>2.5%</strong> (Tổng phí 10.5%)';
+      dom.premiumStatusDesc.innerHTML = 'Thuế bán: <strong style="color: var(--ruby-light)">8.0%</strong> | Setup lệnh: <strong>2.5%</strong>';
     }
   }
 
-  // Update Sorting Headers in Table
+  function updateModeUI() {
+    document.querySelectorAll('#mode-container [data-mode]').forEach(b => b.classList.toggle('active', b.dataset.mode === state.mode));
+    const info = MODE_INFO[state.mode];
+    dom.citiesLabel.textContent = info.citiesLabel;
+    dom.cityAllBtn.classList.toggle('is-hidden', state.mode === 'stationary');
+    dom.modeOptions.classList.toggle('is-hidden', state.mode === 'stationary');
+    dom.sellTypeGroup.classList.toggle('is-hidden', state.mode !== 'transport');
+    dom.avoidCaerleonGroup.classList.toggle('is-hidden', state.mode !== 'transport');
+    dom.modeNote.textContent = info.note;
+    updateCityStat();
+  }
+
+  function updateCityStat() {
+    const city = state.city === 'ALL' ? 'Mọi thành phố' : state.city;
+    dom.statCurrentCity.textContent = city;
+    dom.statFreshness.textContent = {
+      stationary: 'Flip tại chỗ',
+      transport: 'Chạy hàng giữa thành phố',
+      blackmarket: 'Bán cho Black Market'
+    }[state.mode];
+  }
+
   function updateSortHeaderUI() {
     dom.marketResultsTable.querySelectorAll('th').forEach(th => {
       th.classList.remove('sorted-asc', 'sorted-desc');
-      if (th.dataset.sort === state.sortField) {
-        th.classList.add(state.sortAsc ? 'sorted-asc' : 'sorted-desc');
-      }
+      if (th.dataset.sort === state.sortField) th.classList.add(state.sortAsc ? 'sorted-asc' : 'sorted-desc');
     });
   }
 
-  // Reset Filters
   function resetFilters() {
+    const defaults = { search: '', tier: 'all', enchant: 'all', maxBudget: 0, minProfit: 1000, maxAgeMinutes: 1440, minVolume: 0 };
+    Object.assign(state, defaults);
     dom.searchInput.value = '';
-    state.search = '';
     dom.tierSelect.value = 'all';
-    state.tier = 'all';
     dom.enchantSelect.value = 'all';
-    state.enchant = 'all';
     dom.budgetSelect.value = '0';
-    state.maxBudget = 0;
     dom.minProfitSelect.value = '1000';
-    state.minProfit = 1000;
     dom.maxAgeSelect.value = '1440';
-    state.maxAgeMinutes = 1440;
+    dom.minVolumeSelect.value = '0';
     applyFiltersAndRender();
   }
 
-  // Clear Table
   function clearTable() {
-    dom.marketTableBody.innerHTML = `
-      <tr>
-        <td colspan="8">
-          <div class="empty-state">
-            <div class="empty-state-icon">⚖️</div>
-            <h3>Sẵn Sàng Quét Thị Trường</h3>
-            <p>Hãy chọn thành phố bạn đang đứng, chọn nhóm hàng và nhấn <strong>Bắt Đầu Quét</strong> để tìm các món hời nhất!</p>
-          </div>
-        </td>
-      </tr>
-    `;
+    dom.marketTableBody.innerHTML = emptyRow('⚖️', 'Sẵn Sàng Quét Thị Trường',
+      'Chọn chiến thuật, thành phố, nhóm hàng rồi nhấn <strong>Bắt Đầu Quét</strong>.');
     dom.filteredItemsCount.textContent = '0';
   }
 
-  // Start Scanning Process
+  function emptyRow(icon, title, text) {
+    return `<tr><td colspan="10"><div class="empty-state"><div class="empty-state-icon">${icon}</div><h3>${title}</h3><p>${text}</p></div></td></tr>`;
+  }
+
+  function setProgress(visible, percent = 0, label = '') {
+    dom.progressContainer.classList.toggle('is-active', visible);
+    dom.progressBar.style.width = `${percent}%`;
+    dom.progressPercent.textContent = `${percent}%`;
+    if (label) dom.progressLabel.innerHTML = label;
+  }
+
+  // ---------- Scan ----------
+
   async function startScan(forceRefresh = false) {
     if (state.isScanning) return;
     state.isScanning = true;
 
-    const itemsToScan = getItemsForScan();
-    const itemIds = itemsToScan.map(it => it.id);
-
-    // Show Progress
-    dom.progressContainer.classList.add('is-active');
-    dom.progressBar.style.width = '0%';
-    dom.progressPercent.textContent = '0%';
-    dom.progressLabel.innerHTML = `<span>⚡</span> Đang quét <strong>${itemIds.length}</strong> vật phẩm tại <strong>${state.city}</strong>...`;
+    const itemIds = getItemsForScan().map(it => it.id);
+    setProgress(true, 0, `<span>⚡</span> Đang quét <strong>${itemIds.length}</strong> vật phẩm ở 7 thành phố + Black Market...`);
     dom.scanStatusText.textContent = `Đang kết nối API AODP (${state.server.toUpperCase()})...`;
     dom.scanBtn.disabled = true;
     dom.scanBtn.style.opacity = '0.7';
 
     try {
-      const rawPrices = await AlbionAPI.fetchPrices(
-        itemIds,
-        state.city,
-        [1, 2, 3], // Qualities: Normal, Good, Outstanding
-        (loaded, total, percent) => {
-          dom.progressBar.style.width = `${percent}%`;
-          dom.progressPercent.textContent = `${percent}%`;
-          dom.progressLabel.innerHTML = `<span>⚡</span> Đang tải: lô ${loaded}/${total} (${percent}%)`;
-        },
-        forceRefresh
-      );
+      const { data, failedChunks } = await AlbionAPI.fetchPrices(itemIds, [1, 2, 3], (loaded, total, percent) => {
+        setProgress(true, percent, `<span>⚡</span> Đang tải giá: lô ${loaded}/${total} (${percent}%)`);
+      }, forceRefresh);
 
-      state.allScannedData = rawPrices;
-      dom.scanStatusText.textContent = `Quét hoàn tất: nhận ${rawPrices.length} bản ghi giá từ ${state.city}.`;
-
+      state.index = Strategies.buildIndex(data);
+      state.scannedCategory = state.category;
+      dom.scanStatusText.textContent = failedChunks
+        ? `Quét xong nhưng ${failedChunks} lô bị lỗi (API quá tải?). Bấm Quét Lại sau ít phút.`
+        : `Quét xong ${itemIds.length} vật phẩm. Đổi thành phố / chiến thuật không cần quét lại.`;
       recalculateAll();
     } catch (err) {
       console.error('Scan error:', err);
@@ -421,200 +425,175 @@
       state.isScanning = false;
       dom.scanBtn.disabled = false;
       dom.scanBtn.style.opacity = '1';
-      setTimeout(() => {
-        dom.progressContainer.classList.remove('is-active');
-      }, 600);
+      setTimeout(() => setProgress(false), 600);
     }
   }
 
-  // Recalculate metrics when premium toggles or raw data arrives
   function recalculateAll() {
-    const itemMap = new Map();
-    (window.ALBION_ITEMS || []).forEach(it => itemMap.set(it.id, it));
+    if (!state.index) return;
 
-    const processed = [];
+    const raw = Strategies.findOpportunities(state.index, {
+      mode: state.mode,
+      city: state.city,
+      hasPremium: state.hasPremium,
+      buyType: state.buyType,
+      sellType: state.sellType,
+      avoidCaerleon: state.avoidCaerleon,
+      maxSpreadRatio: state.maxSpread,
+      isBmItem: id => (itemMap.get(id) || {}).bm
+    });
 
-    for (const record of state.allScannedData) {
-      // Must have valid sell price min and buy price max
-      if (!record.sell_price_min || !record.buy_price_max) continue;
-      if (record.sell_price_min <= 0 || record.buy_price_max <= 0) continue;
-
-      const calc = Calculator.calculateFlip(
-        record.sell_price_min,
-        record.buy_price_max,
-        state.hasPremium,
-        1
-      );
-
-      if (!calc) continue;
-
-      const meta = itemMap.get(record.item_id) || {
-        id: record.item_id,
-        name: record.item_id,
-        enName: record.item_id,
-        tier: 4,
-        enchant: 0,
-        category: 'other'
-      };
-
-      // Freshness
-      const sellAge = Calculator.getDataAgeInfo(record.sell_price_min_date);
-      const buyAge = Calculator.getDataAgeInfo(record.buy_price_max_date);
-      // Overall age is the oldest of the two prices
-      const effectiveMinutes = Math.max(sellAge.minutes, buyAge.minutes);
-      const freshness = effectiveMinutes < 60 ? 'fresh' : (effectiveMinutes < 360 ? 'medium' : (effectiveMinutes < 1440 ? 'stale' : 'expired'));
-
-      processed.push({
-        id: record.item_id,
+    state.opportunities = raw.map(opp => {
+      const meta = itemMap.get(opp.id) || { name: opp.id, enName: opp.id, tier: 0, enchant: 0, category: 'other' };
+      const o = {
+        ...opp,
+        key: `${opp.id}|${opp.quality}`,
         name: meta.name,
         enName: meta.enName,
         tier: meta.tier,
         enchant: meta.enchant,
-        category: meta.category,
-        quality: record.quality,
-        city: record.city,
-
-        rawSellMin: record.sell_price_min,
-        rawBuyMax: record.buy_price_max,
-        sellDate: record.sell_price_min_date,
-        buyDate: record.buy_price_max_date,
-        effectiveMinutes,
-        freshness,
-        ageText: Calculator.getDataAgeInfo(effectiveMinutes === sellAge.minutes ? record.sell_price_min_date : record.buy_price_max_date).text,
-
-        // Flip Metrics
-        buyPrice: calc.buyPrice,
-        sellPrice: calc.sellPrice,
-        unitCost: calc.unitCost,
-        unitNetProfit: calc.unitNetProfit,
-        roi: calc.roi,
-        buySetupFee: calc.buySetupFee,
-        sellSetupFee: calc.sellSetupFee,
-        salesTax: calc.salesTax,
-        unitNetRevenue: calc.unitNetRevenue,
-        hasPremium: state.hasPremium
-      });
-    }
-
-    state.processedItems = processed;
-    applyFiltersAndRender();
-  }
-
-  // Filter and Sort Processed Items
-  function applyFiltersAndRender() {
-    let list = [...state.processedItems];
-
-    // Filter: Search
-    if (state.search) {
-      const q = state.search;
-      list = list.filter(it => 
-        it.name.toLowerCase().includes(q) ||
-        it.enName.toLowerCase().includes(q) ||
-        it.id.toLowerCase().includes(q)
-      );
-    }
-
-    // Filter: Tier
-    if (state.tier !== 'all') {
-      const t = parseInt(state.tier, 10);
-      list = list.filter(it => it.tier === t);
-    }
-
-    // Filter: Enchant
-    if (state.enchant !== 'all') {
-      const enc = parseInt(state.enchant, 10);
-      list = list.filter(it => it.enchant === enc);
-    }
-
-    // Filter: Max Budget
-    if (state.maxBudget > 0) {
-      list = list.filter(it => it.unitCost <= state.maxBudget);
-    }
-
-    // Filter: Min Profit
-    if (state.minProfit > 0) {
-      list = list.filter(it => it.unitNetProfit >= state.minProfit);
-    }
-
-    // Filter: Max Age
-    if (state.maxAgeMinutes > 0) {
-      list = list.filter(it => it.effectiveMinutes <= state.maxAgeMinutes);
-    }
-
-    // Sort
-    list.sort((a, b) => {
-      let valA = a[state.sortField];
-      let valB = b[state.sortField];
-      if (typeof valA === 'string') {
-        return state.sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
-      }
-      return state.sortAsc ? (valA - valB) : (valB - valA);
+        category: meta.category
+      };
+      attachVolume(o);
+      return o;
     });
 
+    applyFiltersAndRender();
+    loadVolumes();
+  }
+
+  function attachVolume(o) {
+    const v = AlbionAPI.getCachedVolume(o.sellCity, o.id, o.quality);
+    o.volume = v === undefined ? null : v;
+    const est = Calculator.estimateDaily(o.unitNetProfit, o.volume);
+    o.qtyPerDay = est.qtyPerDay;
+    o.profitPerDay = est.profitPerDay;
+  }
+
+  // Background load of sales history for the best candidates under current filters.
+  async function loadVolumes() {
+    if (state.volumeRunning) { state.volumeRerun = true; return; }
+    state.volumeRunning = true;
+    try {
+      do {
+        state.volumeRerun = false;
+        const candidates = filterList(state.opportunities, { ignoreVolume: true })
+          .filter(o => o.unitNetProfit > 0 && o.volume === null)
+          .sort((a, b) => b.unitNetProfit - a.unitNetProfit)
+          .slice(0, VOLUME_CANDIDATES);
+        if (candidates.length === 0) break;
+
+        dom.scanStatusText.textContent = `Đang tải lượng bán/ngày cho ${candidates.length} món tốt nhất...`;
+        await AlbionAPI.fetchDailyVolumes(
+          candidates.map(o => ({ location: o.sellCity, itemId: o.id, quality: o.quality })),
+          7,
+          (done, total) => { dom.scanStatusText.textContent = `Đang tải lượng bán/ngày: ${done}/${total} lô...`; }
+        );
+        state.opportunities.forEach(attachVolume);
+        applyFiltersAndRender();
+        dom.scanStatusText.textContent = 'Đã có lượng bán/ngày (trung bình 7 ngày) cho các món đứng đầu.';
+      } while (state.volumeRerun);
+    } catch (err) {
+      console.error('Volume load error:', err);
+    } finally {
+      state.volumeRunning = false;
+    }
+  }
+
+  // ---------- Filter / sort / render ----------
+
+  function filterList(list, { ignoreVolume = false } = {}) {
+    const q = state.search;
+    const tier = state.tier === 'all' ? null : parseInt(state.tier, 10);
+    const enc = state.enchant === 'all' ? null : parseInt(state.enchant, 10);
+    return list.filter(it => {
+      if (q && !(it.name.toLowerCase().includes(q) || it.enName.toLowerCase().includes(q) || it.id.toLowerCase().includes(q))) return false;
+      if (tier !== null && it.tier !== tier) return false;
+      if (enc !== null && it.enchant !== enc) return false;
+      if (state.maxBudget > 0 && it.unitCost > state.maxBudget) return false;
+      if (it.unitNetProfit < state.minProfit) return false;
+      if (state.maxAgeMinutes > 0 && it.minutes > state.maxAgeMinutes) return false;
+      if (!ignoreVolume && state.minVolume > 0 && (it.volume === null || it.volume < state.minVolume)) return false;
+      return true;
+    });
+  }
+
+  function applyFiltersAndRender() {
+    const list = filterList(state.opportunities);
+    const f = state.sortField;
+    const dir = state.sortAsc ? 1 : -1;
+    list.sort((a, b) => {
+      const va = a[f], vb = b[f];
+      if (typeof va === 'string') return dir * va.localeCompare(vb);
+      const na = va === null || va === undefined ? -Infinity : va;
+      const nb = vb === null || vb === undefined ? -Infinity : vb;
+      return dir * (na - nb);
+    });
     renderTable(list);
     updateStats(list);
   }
 
-  // Quality Label Helper
   function getQualityLabel(q) {
-    switch (q) {
-      case 1: return 'Normal';
-      case 2: return 'Good';
-      case 3: return 'Outstanding';
-      case 4: return 'Excellent';
-      case 5: return 'Masterpiece';
-      default: return 'Normal';
-    }
+    return ({ 1: 'Normal', 2: 'Good', 3: 'Outstanding', 4: 'Excellent', 5: 'Masterpiece' })[q] || 'Normal';
   }
 
-  // Render Table Rows
+  function sideTag(city, type, side) {
+    const verb = side === 'buy'
+      ? (type === 'order' ? 'Buy Order' : 'Mua ngay')
+      : (city === Strategies.BLACK_MARKET ? 'Bán BM' : (type === 'order' ? 'Sell Order' : 'Bán ngay'));
+    const danger = city === 'Caerleon' || city === Strategies.BLACK_MARKET;
+    const place = state.mode === 'stationary' ? '' : `${city} · `;
+    return `<span class="route-tag${danger ? ' danger' : ''}">${esc(place + verb)}</span>`;
+  }
+
   function renderTable(items) {
     dom.filteredItemsCount.textContent = items.length;
+    if (!state.index) { clearTable(); return; }
 
     if (items.length === 0) {
-      dom.marketTableBody.innerHTML = `
-        <tr>
-          <td colspan="8">
-            <div class="empty-state">
-              <div class="empty-state-icon">🔍</div>
-              <h3>Không Tìm Thấy Món Đồ Nào Thỏa Mãn Bộ Lọc</h3>
-              <p>Thử giảm mức "Lợi Nhuận Tối Thiểu", tăng "Độ Cũ Dữ Liệu", hoặc nhấn "🧹 Đặt Lại Bộ Lọc".</p>
-            </div>
-          </td>
-        </tr>
-      `;
+      dom.marketTableBody.innerHTML = emptyRow('🔍', 'Không Tìm Thấy Món Đồ Nào Thỏa Mãn Bộ Lọc',
+        'Thử giảm "Lợi Nhuận Tối Thiểu", tăng "Độ Cũ Dữ Liệu", đổi chiến thuật hoặc nhấn "🧹 Đặt Lại Bộ Lọc".');
       return;
     }
 
-    const rowsHtml = items.map(item => {
-      const imgUrl = AlbionAPI.getItemImageUrl(item.id, item.quality);
+    const shown = items.slice(0, ROW_LIMIT);
+    const rows = shown.map(item => {
       const roiClass = item.roi >= 30 ? 'roi-epic' : (item.roi >= 15 ? 'roi-good' : (item.roi >= 5 ? 'roi-normal' : 'roi-low'));
-      const qLabel = getQualityLabel(item.quality);
+      const freshness = Calculator.freshnessOf(item.minutes);
+      const volumeCell = item.volume === null
+        ? '<span class="volume-pending">…</span>'
+        : `<span class="volume-val${item.volume < 5 ? ' low' : ''}">${item.volume}</span>`;
+      const perDayCell = item.profitPerDay === null
+        ? '<span class="volume-pending">…</span>'
+        : `<div class="profit-val">+${Calculator.formatSilver(item.profitPerDay, true)}</div><div class="price-hint">~${item.qtyPerDay} món/ngày</div>`;
+      const feeHint = item.buySetupFee ? `Setup: ${Calculator.formatSilver(item.buySetupFee)}` : 'Không phí';
 
       return `
-        <tr data-item-id="${item.id}" data-quality="${item.quality}">
+        <tr data-key="${esc(item.key)}">
           <td>
             <div class="item-cell">
               <div class="item-icon-box">
-                <img src="${imgUrl}" alt="${item.name}" loading="lazy" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'40\\' height=\\'40\\'><rect width=\\'40\\' height=\\'40\\' fill=\\'%231e293b\\'/></svg>'">
+                <img src="${AlbionAPI.getItemImageUrl(item.id, item.quality)}" alt="${esc(item.name)}" loading="lazy" onerror="this.style.visibility='hidden'">
               </div>
               <div class="item-info">
-                <div class="item-name">${item.name}</div>
-                <div class="item-en-name">${item.enName}</div>
+                <div class="item-name">${esc(item.name)}</div>
+                <div class="item-en-name">${esc(item.enName)}</div>
                 <div class="item-badges">
                   <span class="badge-tier">T${item.tier}</span>
                   ${item.enchant > 0 ? `<span class="badge-enchant">.${item.enchant}</span>` : ''}
-                  <span class="badge-quality">${qLabel}</span>
+                  <span class="badge-quality">${getQualityLabel(item.quality)}</span>
                 </div>
               </div>
             </div>
           </td>
           <td>
             <div class="price-val" style="color: var(--text-gold);">${Calculator.formatSilver(item.buyPrice)}</div>
-            <div class="price-hint">Setup: ${Calculator.formatSilver(item.buySetupFee)}</div>
+            ${sideTag(item.buyCity, item.buyType, 'buy')}
+            <div class="price-hint">${feeHint}</div>
           </td>
           <td>
             <div class="price-val" style="color: var(--text-primary);">${Calculator.formatSilver(item.sellPrice)}</div>
+            ${sideTag(item.sellCity, item.sellType, 'sell')}
             <div class="price-hint">Thuế: ${Calculator.formatSilver(item.salesTax)}</div>
           </td>
           <td>
@@ -622,40 +601,35 @@
             <div class="price-hint">Vốn / cái</div>
           </td>
           <td>
-            <div class="profit-val">
-              +${Calculator.formatSilver(item.unitNetProfit)}
-            </div>
+            <div class="profit-val">+${Calculator.formatSilver(item.unitNetProfit)}</div>
             <div class="price-hint">Đã trừ toàn bộ phí</div>
           </td>
+          <td><span class="roi-badge ${roiClass}">+${item.roi}%</span></td>
+          <td>${volumeCell}</td>
+          <td>${perDayCell}</td>
           <td>
-            <span class="roi-badge ${roiClass}">+${item.roi}%</span>
-          </td>
-          <td>
-            <span class="freshness-badge freshness-${item.freshness}">
+            <span class="freshness-badge freshness-${freshness}">
               <span class="freshness-dot"></span>
-              ${item.ageText}
+              ${Calculator.ageText(item.minutes)}
             </span>
           </td>
           <td style="text-align: center;">
-            <button type="button" class="action-calc-btn" title="Tính số lượng & xem kế hoạch">
-              🧮 Tính Vốn
-            </button>
+            <button type="button" class="action-calc-btn" title="Tính số lượng & xem kế hoạch">🧮 Tính Vốn</button>
           </td>
-        </tr>
-      `;
+        </tr>`;
     }).join('');
 
-    dom.marketTableBody.innerHTML = rowsHtml;
+    const more = items.length > ROW_LIMIT
+      ? `<tr><td colspan="10" class="results-note">Đang hiện ${ROW_LIMIT}/${items.length} món đầu. Lọc hoặc sắp xếp để xem phần còn lại.</td></tr>`
+      : '';
+    dom.marketTableBody.innerHTML = rows + more;
   }
 
-  // Update Top Metric Cards
-  function updateStats(items = state.processedItems) {
+  function updateStats(items) {
     dom.statOpportunities.textContent = items.length;
-    dom.statOpportunitiesSub.textContent = `Tại ${state.city}`;
-
+    dom.statOpportunitiesSub.textContent = state.city === 'ALL' ? 'Mọi thành phố' : `Tại ${state.city}`;
     if (items.length > 0) {
-      let maxProfit = 0;
-      let sumRoi = 0;
+      let maxProfit = 0, sumRoi = 0;
       for (const it of items) {
         if (it.unitNetProfit > maxProfit) maxProfit = it.unitNetProfit;
         sumRoi += it.roi;
@@ -668,46 +642,80 @@
     }
   }
 
-  // Open Detail Calculator Modal
+  // ---------- Modal ----------
+
   function openModal(item) {
     state.modalItem = item;
-    state.modalQty = 1;
-    dom.calcQtyInput.value = 1;
+    state.modalQty = item.volume ? Math.max(1, Math.floor(item.volume * Calculator.MARKET_SHARE)) : 1;
+    dom.calcQtyInput.value = state.modalQty;
 
     dom.modalImg.src = AlbionAPI.getItemImageUrl(item.id, item.quality);
     dom.modalItemName.textContent = item.name;
     dom.modalItemEn.textContent = `${item.enName} (T${item.tier}${item.enchant > 0 ? '.' + item.enchant : ''} - ${getQualityLabel(item.quality)})`;
 
-    dom.modalGuideCity.textContent = item.city;
-    dom.modalGuideItemName.textContent = item.enName;
-    dom.modalGuideBuyPrice.textContent = Calculator.formatSilver(item.buyPrice);
-    dom.modalGuideSellPrice.textContent = Calculator.formatSilver(item.sellPrice);
+    const isBM = item.sellCity === Strategies.BLACK_MARKET;
+    dom.modalBuyTitle.textContent = item.buyType === 'order' ? `ĐẶT BUY ORDER – ${item.buyCity}` : `MUA NGAY – ${item.buyCity}`;
+    dom.modalBuyPriceLabel.textContent = item.buyType === 'order' ? 'Giá Buy Order đề xuất:' : 'Giá mua ngay (Sell Order rẻ nhất):';
+    dom.modalSellTitle.textContent = isBM ? 'BÁN CHO BLACK MARKET – Caerleon'
+      : (item.sellType === 'order' ? `ĐẶT SELL ORDER – ${item.sellCity}` : `BÁN NGAY – ${item.sellCity}`);
+    dom.modalSellPriceLabel.textContent = isBM ? 'Giá Black Market đang mua:'
+      : (item.sellType === 'order' ? 'Giá Sell Order đề xuất:' : 'Giá Buy Order cao nhất:');
 
+    dom.modalGuideSteps.innerHTML = buildGuide(item);
     updateModalCalculations();
     dom.calcModal.classList.add('is-active');
   }
 
-  // Update Calculations Inside Modal when Quantity or Item changes
-  function updateModalCalculations() {
-    if (!state.modalItem) return;
-    const it = state.modalItem;
-    const qty = state.modalQty;
+  function buildGuide(item) {
+    const name = `<strong>${esc(item.enName)}</strong> (${getQualityLabel(item.quality)})`;
+    const buy = Calculator.formatSilver(item.buyPrice);
+    const sell = Calculator.formatSilver(item.sellPrice);
+    const steps = [];
+    if (item.buyType === 'order') {
+      steps.push(`Đến Market <strong>${esc(item.buyCity)}</strong>, tìm ${name}, đặt <strong>Buy Order</strong> giá <strong>${buy}</strong>. Chờ có người bán vào lệnh.`);
+    } else {
+      steps.push(`Đến Market <strong>${esc(item.buyCity)}</strong>, tìm ${name}, <strong>mua ngay</strong> ở giá <strong>${buy}</strong> (kiểm tra lại giá trước khi mua).`);
+    }
+    if (item.sellCity === Strategies.BLACK_MARKET) {
+      if (item.buyCity !== 'Caerleon') steps.push('Chở hàng về <strong>Caerleon</strong> — đường đi qua vùng đỏ, nên đi mount nhanh, tránh giờ đông.');
+      steps.push(`Vào <strong>Black Market</strong> ở Caerleon, bán ngay với giá <strong>${sell}</strong> (giá BM đổi liên tục, xem lại trước khi bán).`);
+    } else if (item.sellCity !== item.buyCity) {
+      steps.push(`Chở hàng sang <strong>${esc(item.sellCity)}</strong>${item.sellCity === 'Caerleon' || item.buyCity === 'Caerleon' ? ' (qua vùng đỏ, cẩn thận bị gank)' : ''}.`);
+      steps.push(item.sellType === 'order'
+        ? `Đặt <strong>Sell Order</strong> giá <strong>${sell}</strong>.`
+        : `<strong>Bán ngay</strong> vào Buy Order giá <strong>${sell}</strong>.`);
+    } else {
+      steps.push(`Nhận đồ, đặt <strong>Sell Order</strong> giá <strong>${sell}</strong>. Nếu có người hạ giá thấp hơn thì cân nhắc chỉnh lệnh.`);
+    }
+    steps.push('Nhận bạc về hòm thư.');
+    return steps.map(s => `<li>${s}</li>`).join('');
+  }
 
-    const calc = Calculator.calculateFlip(it.rawSellMin, it.rawBuyMax, state.hasPremium, qty);
+  function updateModalCalculations() {
+    const it = state.modalItem;
+    if (!it) return;
+    const qty = state.modalQty;
+    const calc = Calculator.computeTrade({
+      buyPrice: it.buyPrice, buyType: it.buyType,
+      sellPrice: it.sellPrice, sellType: it.sellType,
+      hasPremium: state.hasPremium, quantity: qty
+    });
     if (!calc) return;
 
-    dom.modalSummaryProfit.textContent = `+${Calculator.formatSilver(calc.totalProfit)} Silver`;
-    dom.modalSummaryRoi.textContent = `Tỷ Suất Lợi Nhuận: +${calc.roi}% ROI (${qty} món)`;
+    const s = v => `${Calculator.formatSilver(v)} Silver`;
+    dom.modalSummaryProfit.textContent = `+${s(calc.totalProfit)}`;
+    const volNote = it.volume !== null && it.volume !== undefined ? ` · thị trường bán ~${it.volume} món/ngày` : '';
+    dom.modalSummaryRoi.textContent = `Tỷ Suất Lợi Nhuận: +${calc.roi}% ROI (${qty} món)${volNote}`;
 
-    dom.modalBuyPrice.textContent = `${Calculator.formatSilver(calc.buyPrice * qty)} Silver`;
-    dom.modalBuySetup.textContent = `${Calculator.formatSilver(calc.buySetupFee * qty)} Silver`;
-    dom.modalTotalBuy.textContent = `${Calculator.formatSilver(calc.totalInvestment)} Silver`;
+    dom.modalBuyPrice.textContent = s(calc.buyPrice * qty);
+    dom.modalBuySetup.textContent = s(calc.buySetupFee * qty);
+    dom.modalTotalBuy.textContent = s(calc.totalInvestment);
 
-    dom.modalSellPrice.textContent = `${Calculator.formatSilver(calc.sellPrice * qty)} Silver`;
-    dom.modalSellSetup.textContent = `${Calculator.formatSilver(calc.sellSetupFee * qty)} Silver`;
+    dom.modalSellPrice.textContent = s(calc.sellPrice * qty);
+    dom.modalSellSetup.textContent = s(calc.sellSetupFee * qty);
     dom.modalTaxLabel.textContent = `Thuế Market (${(calc.taxRate * 100).toFixed(1)}%):`;
-    dom.modalSellTax.textContent = `${Calculator.formatSilver(calc.salesTax * qty)} Silver`;
-    dom.modalTotalRevenue.textContent = `${Calculator.formatSilver(calc.totalRevenue)} Silver`;
+    dom.modalSellTax.textContent = s(calc.salesTax * qty);
+    dom.modalTotalRevenue.textContent = s(calc.totalRevenue);
   }
 
   function closeModal() {
@@ -715,11 +723,6 @@
     state.modalItem = null;
   }
 
-  // Start app on DOMContentLoaded
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
-
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();
