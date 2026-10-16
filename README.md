@@ -6,38 +6,38 @@ Công cụ quét thị trường, tính toán tỷ suất sinh lời (**ROI**) v
 
 ## 🌟 Các Tính Năng Nổi Bật
 
-1. **Option Bật/Tắt Premium Thông Minh:**
-   * **Khi CÓ Premium:** Thuế Market **4.0%** + Setup Fee **2.5%** = Tổng phí **6.5%**.
-   * **Khi KHÔNG CÓ Premium:** Thuế Market **8.0%** + Setup Fee **2.5%** = Tổng phí **10.5%**.
-   * Chuyển đổi công tắc chỉ với 1 click, toàn bộ bảng giá và lợi nhuận sẽ tự động tính lại ngay lập tức mà không cần tốn thời gian tải lại dữ liệu!
+1. **3 chiến thuật flip:**
+   * **⚖️ Flip tại chỗ:** Buy Order (giá mua cao nhất + 1) ➔ Sell Order (giá bán thấp nhất − 1) trong cùng thành phố.
+   * **🐂 Chạy hàng giữa thành phố:** mua ở thành phố A, tool tự tìm thành phố B bán lời nhất. Chọn được mua ngay / đặt Buy Order, bán bằng Sell Order / bán ngay, và tránh Caerleon (vùng đỏ).
+   * **🏴 Black Market:** mua gear ở thành phố (hoặc ngay tại Caerleon), bán ngay cho Black Market. Chỉ tính các món BM thật sự mua (vũ khí, giáp, túi, áo choàng).
+   * Chọn **🌐 Mọi Thành Phố** để tool tự tìm nơi mua rẻ nhất.
 
-2. **Dữ Liệu Trực Tiếp Server ASIA (Singapore):**
-   * Kết nối trực tiếp API `east.albion-online-data.com`.
-   * Hỗ trợ chọn đầy đủ 7 thành phố lớn: **Lymhurst, Fort Sterling, Thetford, Bridgewatch, Martlock, Caerleon, Brecilien**.
-   * Có thể đổi sang server **Americas** hoặc **Europe** bất cứ lúc nào.
+2. **Quét 1 lần cho mọi thành phố:** mỗi lô item lấy giá cả 7 thành phố + Black Market trong 1 request. Đổi thành phố, chiến thuật hay Premium chỉ tính lại, **không phải quét lại**.
 
-3. **Cơ Sở Dữ Liệu 1,700+ Vật Phẩm Phổ Biến:**
-   * Túi xách & Áo choàng thường / Faction (Thetford, Fort Sterling, Lymhurst, Martlock, Bridgewatch, Caerleon, Brecilien, Undead, Heretic, Keeper, Morgana, Demon).
-   * Thú cưỡi (Ngựa cưỡi, Ngựa bọc giáp, Bò tải, Sói, Hổ nanh, Nai, Gấu, Rồng...).
-   * Vũ khí Meta (Kiếm, Cung, Dao găm, Nỏ, Trượng Lửa/Băng/Nguyền/Thánh/Tự nhiên...).
-   * Giáp, Mũ, Giày (Vải, Da, Sắt).
-   * Thức ăn & Thuốc lắc (Pork Roast, Pork Omelette, Beef Stew, Potion máu/độc/kháng...).
-   * Nguyên liệu tinh chế & Đá Rune/Soul/Relic.
+3. **Lượng bán / ngày & Lời / ngày:**
+   * Tự tải lịch sử giao dịch 7 ngày (AODP history API) cho 200 món tốt nhất, chạy nền.
+   * Cột **Bán / Ngày**: trung bình số món bán ra mỗi ngày ở nơi bạn bán.
+   * Cột **Lời / Ngày ~**: lời/cái × 10% lượng bán (giả định bạn chiếm được 10% thị trường). Spread to mà không ai mua thì cột này sẽ cho thấy ngay.
+   * Bộ lọc **Bán tối thiểu / ngày**.
 
-4. **Bộ Lọc & Sắp Xếp Chuyên Nghiệp:**
-   * Tìm kiếm theo tên tiếng Việt, tiếng Anh hoặc mã Item.
-   * Lọc theo Tier (T3 - T8), Cường hóa Enchant (.0, .1, .2, .3).
-   * Lọc theo Vốn tối đa (cho người mới bắt đầu ít bạc).
-   * Lọc theo Lợi nhuận tối thiểu (Min Profit) & Độ tuổi dữ liệu (Data Age).
-   * Sắp xếp linh hoạt: Lợi nhuận cao nhất, ROI cao nhất, Vốn ít nhất, Dữ liệu mới nhất.
+4. **Lọc giá ảo:** bỏ các cặp giá chênh quá 2x / 3x / 5x (thường là lệnh troll hoặc dữ liệu cũ).
 
-5. **Bảng Tính Dòng Tiền & Kế Hoạch Vốn Chi Tiết (Modal Calculator):**
-   * Bấm vào bất kỳ món đồ nào để mở bảng tính dòng tiền.
-   * Nhập số lượng dự định mua -> Tool tự động tính:
-     * Tổng vốn đầu tư cần có (đã gồm phí đặt lệnh mua).
-     * Doanh thu thực nhận về hòm thư sau khi trừ thuế và phí bán.
-     * Tổng lãi ròng thực tế đút túi và % ROI.
-   * Nút **📋 Copy Tên** để dán nhanh vào thanh tìm kiếm trong game.
+5. **Phí chuẩn theo từng kiểu lệnh:**
+   * Đặt lệnh (Buy Order / Sell Order): setup fee **2.5%**.
+   * Mua ngay: **không phí**. Bán ngay / bán cho Black Market: chỉ mất thuế.
+   * Thuế bán: **4%** (Premium) / **8%** (không Premium).
+
+6. **Danh mục ~7,700 vật phẩm sinh tự động từ file game** ([ao-bin-dumps](https://github.com/ao-data/ao-bin-dumps)):
+   * Mọi ID đều đúng (bản cũ có 142 ID sai, ví dụ toàn bộ nguyên liệu enchant phải là `T4_PLANKS_LEVEL1@1`).
+   * Tên tiếng Anh đúng tên trong game ➔ nút **📋 Copy Tên** dán thẳng vào ô tìm kiếm của Market.
+   * Hỗ trợ enchant .0 – .4, off-hand, nguyên liệu thô.
+   * Cập nhật sau mỗi bản patch: `npm run build:catalog`.
+
+7. **Bộ lọc & sắp xếp:** tên VN/EN/mã item, Tier, Enchant, Vốn tối đa, Lời tối thiểu, Độ cũ dữ liệu, Bán/ngày. Sắp xếp theo lời, ROI, vốn, lượng bán, lời/ngày, độ mới.
+
+8. **Bảng tính dòng tiền:** bấm vào món bất kỳ ➔ số lượng mặc định = 10% lượng bán/ngày, hướng dẫn từng bước theo đúng chiến thuật (mua ở đâu, chở đi đâu, bán kiểu gì).
+
+9. **Chống quá tải API:** throttle ~170 request/phút (dưới giới hạn AODP), tự retry khi bị 429/5xx.
 
 ---
 
@@ -47,9 +47,12 @@ Công cụ quét thị trường, tính toán tỷ suất sinh lời (**ROI**) v
 
 ```bash
 # 1. Di chuyển vào thư mục dự án
-cd C:\Users\Admin\.gemini\antigravity-ide\scratch\albion-market-flip
+cd albion-market-flip
 
-# 2. Khởi chạy máy chủ
+# 2. (Tuỳ chọn) Cập nhật danh mục item sau bản patch mới
+npm run build:catalog
+
+# 3. Khởi chạy máy chủ
 npm start
 # Hoặc: node server.js
 ```
