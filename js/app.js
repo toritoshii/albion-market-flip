@@ -42,6 +42,11 @@
     volumeRunning: false,
     volumeRerun: false,
 
+    autoScan: false,
+    autoScanMinutes: 10,
+    autoScanTimer: null,
+    seenAlerts: new Set(),
+
     modalItem: null,
     modalQty: 1
   };
@@ -57,6 +62,10 @@
     transport: {
       citiesLabel: '📍 Mua ở:',
       note: 'Tool tự chọn thành phố bán có lời nhất. Nhớ tính thời gian chạy đường và rủi ro bị gank khi đi qua vùng đỏ/đen. Brecilien nằm trong Mists, đi bằng portal.'
+    },
+    loot: {
+      citiesLabel: '📍 Bạn đang ở:',
+      note: ''
     },
     blackmarket: {
       citiesLabel: '📍 Mua ở:',
@@ -108,6 +117,12 @@
     progressPercent: $('progress-percent'),
 
     marketTableBody: $('market-table-body'),
+    thBuy: $('th-buy'),
+    thSell: $('th-sell'),
+    thCost: $('th-cost'),
+    thProfit: $('th-profit'),
+    autoScanToggle: $('auto-scan-toggle'),
+    autoScanInterval: $('auto-scan-interval'),
     marketResultsTable: $('market-results-table'),
     filteredItemsCount: $('filtered-items-count'),
 
@@ -231,6 +246,12 @@
     bindSelect(dom.minVolumeSelect, 'minVolume');
     dom.spreadSelect.addEventListener('change', e => { state.maxSpread = parseFloat(e.target.value); recalculateAll(); });
 
+    dom.autoScanToggle.addEventListener('change', e => setAutoScan(e.target.checked));
+    dom.autoScanInterval.addEventListener('change', e => {
+      state.autoScanMinutes = parseInt(e.target.value, 10);
+      if (state.autoScan) setAutoScan(true);
+    });
+
     dom.scanBtn.addEventListener('click', () => startScan(false));
     dom.refreshBtn.addEventListener('click', () => startScan(true));
     dom.resetBtn.addEventListener('click', resetFilters);
@@ -304,6 +325,9 @@
       }));
     }
 
+    const originalTitle = document.title;
+    window.addEventListener('focus', () => { document.title = originalTitle; });
+
     window.addEventListener('keydown', e => {
       if (e.key !== 'Escape') return;
       if (dom.calcModal.classList.contains('is-active')) closeModal();
@@ -341,7 +365,12 @@
     const info = MODE_INFO[state.mode];
     dom.citiesLabel.textContent = info.citiesLabel;
     dom.cityAllBtn.classList.toggle('is-hidden', state.mode === 'stationary');
-    dom.modeOptions.classList.toggle('is-hidden', state.mode === 'stationary');
+    dom.modeOptions.classList.toggle('is-hidden', state.mode === 'stationary' || state.mode === 'loot');
+    const loot = state.mode === 'loot';
+    dom.thBuy.textContent = loot ? 'Đồ Của Bạn' : 'Giá Mua';
+    dom.thSell.textContent = loot ? 'Bán Ở Đâu / Giá' : 'Giá Bán';
+    dom.thCost.textContent = loot ? 'Phí + Thuế' : 'Vốn Đầu Tư';
+    dom.thProfit.textContent = loot ? 'Thực Nhận / Cái' : 'Lợi Nhuận Ròng';
     dom.sellTypeGroup.classList.toggle('is-hidden', state.mode !== 'transport');
     dom.avoidCaerleonGroup.classList.toggle('is-hidden', state.mode !== 'transport');
     dom.modeNote.textContent = info.note;
@@ -354,7 +383,8 @@
     dom.statFreshness.textContent = {
       stationary: 'Flip tại chỗ',
       transport: 'Chạy hàng giữa thành phố',
-      blackmarket: 'Bán cho Black Market'
+      blackmarket: 'Bán cho Black Market',
+      loot: 'Bán loot farm được'
     }[state.mode];
   }
 
@@ -567,6 +597,18 @@
         ? '<span class="volume-pending">…</span>'
         : `<div class="profit-val">+${Calculator.formatSilver(item.profitPerDay, true)}</div><div class="price-hint">~${item.qtyPerDay} món/ngày</div>`;
       const feeHint = item.buySetupFee ? `Setup: ${Calculator.formatSilver(item.buySetupFee)}` : 'Không phí';
+      const isLoot = item.buyType === 'owned';
+      const buyCell = isLoot
+        ? `<div class="loot-owned">🎒 Có sẵn</div>${item.instantAlt
+            ? `<div class="price-hint">Bán ngay tốt nhất: ${Calculator.formatSilver(item.instantAlt.net)} (${esc(item.instantAlt.city)})</div>`
+            : '<div class="price-hint">Bán ngay là tốt nhất</div>'}`
+        : `<div class="price-val" style="color: var(--text-gold);">${Calculator.formatSilver(item.buyPrice)}</div>
+            ${sideTag(item.buyCity, item.buyType, 'buy')}
+            <div class="price-hint">${feeHint}</div>`;
+      const costCell = isLoot
+        ? `<div class="price-val">${Calculator.formatSilver(item.totalFees)}</div><div class="price-hint">Setup ${Calculator.formatSilver(item.sellSetupFee)} + thuế</div>`
+        : `<div class="price-val">${Calculator.formatSilver(item.unitCost)}</div><div class="price-hint">Vốn / cái</div>`;
+      const roiCell = isLoot ? '<span class="price-hint">—</span>' : `<span class="roi-badge ${roiClass}">+${item.roi}%</span>`;
 
       return `
         <tr data-key="${esc(item.key)}">
@@ -586,25 +628,18 @@
               </div>
             </div>
           </td>
-          <td>
-            <div class="price-val" style="color: var(--text-gold);">${Calculator.formatSilver(item.buyPrice)}</div>
-            ${sideTag(item.buyCity, item.buyType, 'buy')}
-            <div class="price-hint">${feeHint}</div>
-          </td>
+          <td>${buyCell}</td>
           <td>
             <div class="price-val" style="color: var(--text-primary);">${Calculator.formatSilver(item.sellPrice)}</div>
             ${sideTag(item.sellCity, item.sellType, 'sell')}
             <div class="price-hint">Thuế: ${Calculator.formatSilver(item.salesTax)}</div>
           </td>
-          <td>
-            <div class="price-val">${Calculator.formatSilver(item.unitCost)}</div>
-            <div class="price-hint">Vốn / cái</div>
-          </td>
+          <td>${costCell}</td>
           <td>
             <div class="profit-val">+${Calculator.formatSilver(item.unitNetProfit)}</div>
             <div class="price-hint">Đã trừ toàn bộ phí</div>
           </td>
-          <td><span class="roi-badge ${roiClass}">+${item.roi}%</span></td>
+          <td>${roiCell}</td>
           <td>${volumeCell}</td>
           <td>${perDayCell}</td>
           <td>
@@ -654,8 +689,9 @@
     dom.modalItemEn.textContent = `${item.enName} (T${item.tier}${item.enchant > 0 ? '.' + item.enchant : ''} - ${getQualityLabel(item.quality)})`;
 
     const isBM = item.sellCity === Strategies.BLACK_MARKET;
-    dom.modalBuyTitle.textContent = item.buyType === 'order' ? `ĐẶT BUY ORDER – ${item.buyCity}` : `MUA NGAY – ${item.buyCity}`;
-    dom.modalBuyPriceLabel.textContent = item.buyType === 'order' ? 'Giá Buy Order đề xuất:' : 'Giá mua ngay (Sell Order rẻ nhất):';
+    const isLoot = item.buyType === 'owned';
+    dom.modalBuyTitle.textContent = isLoot ? 'ĐỒ CÓ SẴN (LOOT)' : (item.buyType === 'order' ? `ĐẶT BUY ORDER – ${item.buyCity}` : `MUA NGAY – ${item.buyCity}`);
+    dom.modalBuyPriceLabel.textContent = isLoot ? 'Giá vốn:' : (item.buyType === 'order' ? 'Giá Buy Order đề xuất:' : 'Giá mua ngay (Sell Order rẻ nhất):');
     dom.modalSellTitle.textContent = isBM ? 'BÁN CHO BLACK MARKET – Caerleon'
       : (item.sellType === 'order' ? `ĐẶT SELL ORDER – ${item.sellCity}` : `BÁN NGAY – ${item.sellCity}`);
     dom.modalSellPriceLabel.textContent = isBM ? 'Giá Black Market đang mua:'
@@ -671,6 +707,20 @@
     const buy = Calculator.formatSilver(item.buyPrice);
     const sell = Calculator.formatSilver(item.sellPrice);
     const steps = [];
+    if (item.buyType === 'owned') {
+      if (item.sellCity === Strategies.BLACK_MARKET) {
+        steps.push(`Mang ${name} tới <strong>Black Market</strong> ở Caerleon, bán ngay với giá <strong>${sell}</strong>.`);
+      } else if (item.sellType === 'order') {
+        steps.push(`Ở Market <strong>${esc(item.sellCity)}</strong>, đặt <strong>Sell Order</strong> ${name} giá <strong>${sell}</strong>, rồi chờ khớp.`);
+      } else {
+        steps.push(`Ở Market <strong>${esc(item.sellCity)}</strong>, <strong>bán ngay</strong> ${name} vào Buy Order giá <strong>${sell}</strong>.`);
+      }
+      if (item.instantAlt) {
+        steps.push(`Không muốn chờ? Bán ngay ở <strong>${esc(item.instantAlt.city)}</strong> giá ${Calculator.formatSilver(item.instantAlt.price)} (thực nhận ${Calculator.formatSilver(item.instantAlt.net)}/cái).`);
+      }
+      steps.push('Nhận bạc về hòm thư.');
+      return steps.map(s => `<li>${s}</li>`).join('');
+    }
     if (item.buyType === 'order') {
       steps.push(`Đến Market <strong>${esc(item.buyCity)}</strong>, tìm ${name}, đặt <strong>Buy Order</strong> giá <strong>${buy}</strong>. Chờ có người bán vào lệnh.`);
     } else {
@@ -695,7 +745,7 @@
     const it = state.modalItem;
     if (!it) return;
     const qty = state.modalQty;
-    const calc = Calculator.computeTrade({
+    const calc = it.buyType === 'owned' ? lootCalc(it, qty) : Calculator.computeTrade({
       buyPrice: it.buyPrice, buyType: it.buyType,
       sellPrice: it.sellPrice, sellType: it.sellType,
       hasPremium: state.hasPremium, quantity: qty
@@ -716,6 +766,62 @@
     dom.modalTaxLabel.textContent = `Thuế Market (${(calc.taxRate * 100).toFixed(1)}%):`;
     dom.modalSellTax.textContent = s(calc.salesTax * qty);
     dom.modalTotalRevenue.textContent = s(calc.totalRevenue);
+  }
+
+  function lootCalc(it, qty) {
+    const s = Strategies.netSale(it.sellPrice, it.sellType, state.hasPremium);
+    return {
+      buyPrice: 0, buySetupFee: 0, totalInvestment: 0,
+      sellPrice: it.sellPrice, sellSetupFee: s.setup, salesTax: s.tax, taxRate: s.taxRate,
+      totalRevenue: s.net * qty, totalProfit: s.net * qty, roi: 0
+    };
+  }
+
+  // ---------- Auto scan + browser notifications ----------
+
+  function alertKey(o) {
+    return `${o.key}|${o.buyCity}|${o.sellCity}|${o.buyType}|${o.sellType}`;
+  }
+
+  async function setAutoScan(on) {
+    clearInterval(state.autoScanTimer);
+    state.autoScanTimer = null;
+    state.autoScan = on;
+    dom.autoScanToggle.checked = on;
+    if (!on) return;
+
+    if ('Notification' in window && Notification.permission === 'default') {
+      try { await Notification.requestPermission(); } catch (e) { /* ignore */ }
+    }
+    // Opportunities already on screen don't trigger alerts.
+    filterList(state.opportunities).forEach(o => state.seenAlerts.add(alertKey(o)));
+    state.autoScanTimer = setInterval(autoScanTick, state.autoScanMinutes * 60000);
+    dom.scanStatusText.textContent = `🔔 Đang bật tự quét mỗi ${state.autoScanMinutes} phút. Để tab này mở.`;
+  }
+
+  async function autoScanTick() {
+    if (state.isScanning) return;
+    await startScan(true);
+    notifyNew();
+  }
+
+  function notifyNew() {
+    const fresh = filterList(state.opportunities)
+      .filter(o => !state.seenAlerts.has(alertKey(o)))
+      .sort((a, b) => b.unitNetProfit - a.unitNetProfit);
+    fresh.forEach(o => state.seenAlerts.add(alertKey(o)));
+    if (fresh.length === 0) return;
+
+    const top = fresh.slice(0, 3).map(o => {
+      const route = o.buyType === 'owned' ? o.sellCity : (o.buyCity === o.sellCity ? o.buyCity : `${o.buyCity} → ${o.sellCity}`);
+      return `${o.enName}: +${Calculator.formatSilver(o.unitNetProfit, true)} (${route})`;
+    }).join('\n');
+    const title = `Albion: ${fresh.length} cơ hội mới`;
+    document.title = `(${fresh.length}) Albion Market Flip`;
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try { new Notification(title, { body: top, tag: 'albion-flip' }); } catch (e) { /* ignore */ }
+    }
+    dom.scanStatusText.textContent = `🔔 ${title}. ${top.split('\n')[0]}`;
   }
 
   function closeModal() {

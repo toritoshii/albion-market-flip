@@ -109,6 +109,7 @@
         <button type="button" class="cat-btn active" data-mode="stationary" title="Đặt Buy Order rồi Sell Order trong cùng 1 thành phố">⚖️ Flip Tại Chỗ</button>
         <button type="button" class="cat-btn" data-mode="transport" title="Mua ở thành phố này, chở sang thành phố khác bán">🐂 Chạy Hàng Giữa Thành Phố</button>
         <button type="button" class="cat-btn" data-mode="blackmarket" title="Mua gear ở thành phố, bán ngay cho Black Market ở Caerleon">🏴 Black Market</button>
+        <button type="button" class="cat-btn" data-mode="loot" title="Đồ farm được: bán ở đâu, bán kiểu gì cho nhiều bạc nhất">💰 Bán Loot</button>
       </div>
 
       <!-- Cities Bar -->
@@ -262,6 +263,19 @@
           </button>
         </div>
 
+        <div class="auto-scan-group">
+          <label class="option-check" title="Tự quét lại theo chu kỳ, báo khi có cơ hội mới thoả bộ lọc (để tab mở)">
+            <input type="checkbox" id="auto-scan-toggle">
+            <span>🔔 Tự quét &amp; thông báo</span>
+          </label>
+          <select id="auto-scan-interval" class="filter-select" style="width: auto;">
+            <option value="5">mỗi 5 phút</option>
+            <option value="10" selected>mỗi 10 phút</option>
+            <option value="15">mỗi 15 phút</option>
+            <option value="30">mỗi 30 phút</option>
+          </select>
+        </div>
+
         <div class="status-badge-container">
           <span id="scan-status-text">Chọn danh mục và bấm "Bắt Đầu Quét" để phân tích giá.</span>
         </div>
@@ -297,10 +311,10 @@
           <thead>
             <tr>
               <th data-sort="name">Vật Phẩm</th>
-              <th data-sort="buyPrice">Giá Mua</th>
-              <th data-sort="sellPrice">Giá Bán</th>
-              <th data-sort="unitCost">Vốn Đầu Tư</th>
-              <th data-sort="unitNetProfit" class="sorted-desc">Lợi Nhuận Ròng</th>
+              <th data-sort="buyPrice" id="th-buy">Giá Mua</th>
+              <th data-sort="sellPrice" id="th-sell">Giá Bán</th>
+              <th data-sort="unitCost" id="th-cost">Vốn Đầu Tư</th>
+              <th data-sort="unitNetProfit" class="sorted-desc" id="th-profit">Lợi Nhuận Ròng</th>
               <th data-sort="roi">ROI (%)</th>
               <th data-sort="volume" title="Trung bình số món bán ra mỗi ngày (7 ngày) ở nơi bán">Bán / Ngày</th>
               <th data-sort="profitPerDay" title="Lời ước tính nếu bạn chiếm 10% lượng bán mỗi ngày">Lời / Ngày ~</th>

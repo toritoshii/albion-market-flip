@@ -11,6 +11,8 @@ Công cụ quét thị trường, tính toán tỷ suất sinh lời (**ROI**) v
    * **🐂 Chạy hàng giữa thành phố:** mua ở thành phố A, tool tự tìm thành phố B bán lời nhất. Chọn được mua ngay / đặt Buy Order, bán bằng Sell Order / bán ngay, và tránh Caerleon (vùng đỏ).
    * **🏴 Black Market:** mua gear ở thành phố (hoặc ngay tại Caerleon), bán ngay cho Black Market. Chỉ tính các món BM thật sự mua (vũ khí, giáp, túi, áo choàng).
    * Chọn **🌐 Mọi Thành Phố** để tool tự tìm nơi mua rẻ nhất.
+   * **💰 Bán Loot** (cho người vốn ít, đi farm): món bạn đã có thì bán ở đâu, bán kiểu gì (bán ngay / Sell Order / Black Market) để thực nhận nhiều bạc nhất. Có kèm phương án bán ngay tốt nhất nếu không muốn chờ.
+   * **🔔 Tự quét & thông báo:** tự quét lại mỗi 5–30 phút, hiện thông báo trình duyệt khi có cơ hội mới thoả bộ lọc (để tab mở). Chỉ đọc dữ liệu công khai từ AODP, không đụng vào client game.
 
 2. **Quét 1 lần cho mọi thành phố:** mỗi lô item lấy giá cả 7 thành phố + Black Market trong 1 request. Đổi thành phố, chiến thuật hay Premium chỉ tính lại, **không phải quét lại**.
 

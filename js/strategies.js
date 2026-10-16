@@ -4,6 +4,7 @@
  *  stationary  : Buy Order + Sell Order in the same city (classic "flip tại chỗ").
  *  transport   : buy in city A, carry, sell in city B (best B picked automatically).
  *  blackmarket : buy gear in a city, instant-sell to the Black Market in Caerleon.
+ *  loot        : you already own the item (farmed loot) - best place/way to sell it.
  */
 (function (root) {
   const Calc = (typeof module !== 'undefined' && typeof require === 'function')
@@ -69,7 +70,7 @@
   /**
    * @param {Map} index       from buildIndex
    * @param {object} opts
-   * @param {'stationary'|'transport'|'blackmarket'} opts.mode
+   * @param {'stationary'|'transport'|'blackmarket'|'loot'} opts.mode
    * @param {string} opts.city              city to flip in / buy from, or 'ALL'
    * @param {boolean} opts.hasPremium
    * @param {'order'|'instant'} [opts.buyType]   transport / blackmarket only
@@ -124,12 +125,89 @@
         }
       }
 
+      if (opts.mode === 'loot') {
+        const opp = bestLootSale(itemId, quality, byLoc, opts, maxRatio);
+        if (opp) out.push(opp);
+        continue;
+      }
+
       if (best) out.push(best);
     }
     return out;
   }
 
-  const Strategies = { CITIES, BLACK_MARKET, ALL, buildIndex, findOpportunities, buySide, sellSide };
+  /** Net silver received for selling 1 unit you already own. */
+  function netSale(price, sellType, hasPremium) {
+    const taxRate = hasPremium ? Calc.PREMIUM_TAX_RATE : Calc.NON_PREMIUM_TAX_RATE;
+    const setup = sellType === 'order' ? Math.round(price * Calc.SETUP_FEE_RATE) : 0;
+    const tax = Math.round(price * taxRate);
+    return { setup, tax, taxRate, net: price - setup - tax };
+  }
+
+  /**
+   * Loot mode: you already own the item (from farming). Find where/how to sell it for the most silver.
+   * opts.city = where you are now ('ALL' = willing to travel anywhere).
+   */
+  function bestLootSale(itemId, quality, byLoc, opts, maxRatio) {
+    const places = opts.city === ALL ? CITIES.slice() : [opts.city];
+    const bmOk = (!opts.isBmItem || opts.isBmItem(itemId)) && (opts.city === ALL || opts.city === 'Caerleon');
+    const candidates = [];
+
+    for (const city of places) {
+      const rec = byLoc[city];
+      if (!rec) continue;
+      const instant = sellSide(rec, 'instant');
+      const order = sellSide(rec, 'order');
+      if (instant) candidates.push({ city, type: 'instant', side: instant });
+      // A sell order far above what buyers pay is usually a troll listing that will never fill.
+      if (order && !(maxRatio > 0 && instant && order.price / instant.price > maxRatio)) {
+        candidates.push({ city, type: 'order', side: order });
+      }
+    }
+    if (bmOk) {
+      const bm = sellSide(byLoc[BLACK_MARKET], 'instant');
+      if (bm) candidates.push({ city: BLACK_MARKET, type: 'instant', side: bm });
+    }
+    if (candidates.length === 0) return null;
+
+    let best = null;
+    let bestInstant = null;
+    for (const c of candidates) {
+      const s = netSale(c.side.price, c.type, opts.hasPremium);
+      const row = { ...c, ...s };
+      if (!best || row.net > best.net) best = row;
+      if (c.type === 'instant' && (!bestInstant || row.net > bestInstant.net)) bestInstant = row;
+    }
+
+    return {
+      id: itemId,
+      quality,
+      buyCity: best.city,
+      sellCity: best.city,
+      buyType: 'owned',
+      sellType: best.type,
+      buyPrice: 0,
+      sellPrice: best.side.price,
+      hasPremium: opts.hasPremium,
+      taxRate: best.taxRate,
+      buySetupFee: 0,
+      sellSetupFee: best.setup,
+      salesTax: best.tax,
+      totalFees: best.setup + best.tax,
+      unitCost: 0,
+      unitNetRevenue: best.net,
+      unitNetProfit: best.net,
+      roi: 0,
+      minutes: best.side.minutes,
+      spreadRatio: 1,
+      // Fallback if you don't want to wait for a sell order to fill.
+      instantAlt: bestInstant && bestInstant !== best
+        ? { city: bestInstant.city, price: bestInstant.side.price, net: bestInstant.net }
+        : null
+    };
+  }
+
+  const Strategies = { CITIES, BLACK_MARKET, ALL, buildIndex, findOpportunities, buySide, sellSide, netSale, bestLootSale };
   if (typeof module !== 'undefined') module.exports = Strategies;
   if (typeof window !== 'undefined') window.Strategies = Strategies;
 })(typeof window !== 'undefined' ? window : globalThis);
